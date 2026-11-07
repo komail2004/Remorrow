@@ -7,6 +7,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \SavedAction.dueAt) private var saved: [SavedAction]
     @Query(sort: \ReturnItem.deadline) private var returns: [ReturnItem]
+    @Query(sort: \SubscriptionItem.nextCharge) private var subscriptions: [SubscriptionItem]
     @AppStorage("currentDraft") private var draft = ""
     @AppStorage("completedWelcomeGuideV1") private var hasCompletedWelcome = false
     @State private var showingWelcome = false
@@ -34,11 +35,13 @@ struct ContentView: View {
     private enum AgendaEntry: Identifiable {
         case plan(SavedAction)
         case shoppingReturn(ReturnItem)
+        case subscription(SubscriptionItem)
 
         var id: String {
             switch self {
             case .plan(let item): "plan-" + item.id.uuidString
             case .shoppingReturn(let item): "return-" + item.id.uuidString
+            case .subscription(let item): "subscription-" + item.id.uuidString
             }
         }
 
@@ -46,6 +49,7 @@ struct ContentView: View {
             switch self {
             case .plan(let item): item.dueAt
             case .shoppingReturn(let item): item.deadline
+            case .subscription(let item): item.nextCharge
             }
         }
     }
@@ -57,7 +61,9 @@ struct ContentView: View {
     private var agenda: [AgendaEntry] {
         let actions = upcoming.map { AgendaEntry.plan($0) }
         let returns = upcomingReturns.map { AgendaEntry.shoppingReturn($0) }
-        return (actions + returns).sorted { $0.dueAt < $1.dueAt }
+        let charges = subscriptions.filter { $0.isActive && $0.nextCharge >= Date().addingTimeInterval(-7 * 24 * 60 * 60) }
+            .map { AgendaEntry.subscription($0) }
+        return (actions + returns + charges).sorted { $0.dueAt < $1.dueAt }
     }
 
     var body: some View {
@@ -68,8 +74,8 @@ struct ContentView: View {
             library
                 .tabItem { Label("My plans", systemImage: "calendar") }
                 .tag(1)
-            ReturnsView()
-                .tabItem { Label("Returns", systemImage: "shippingbox") }
+            ReceiptsSubscriptionsView()
+                .tabItem { Label("Receipts", systemImage: "creditcard") }
                 .tag(2)
             settings
                 .tabItem { Label("Settings", systemImage: "gearshape") }
@@ -168,7 +174,7 @@ struct ContentView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .accessibilityHidden(true)
             Text("remorrow")
-                .font(.system(size: 27, weight: .semibold, design: .serif))
+                .font(.system(size: 27, weight: .bold, design: .rounded))
                 .tracking(-1)
             Spacer()
             Label("On device", systemImage: "lock")
@@ -184,8 +190,8 @@ struct ContentView: View {
                     Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                         .font(.subheadline)
                         .foregroundStyle(RemorrowStyle.secondaryText)
-                    Text("Today")
-                        .font(.system(.largeTitle, design: .serif, weight: .bold))
+                    Text("Your day")
+                        .font(.system(size: 35, weight: .bold, design: .rounded))
                 }
                 Spacer()
                 Text(String(agenda.count) + " ahead")
@@ -263,6 +269,29 @@ struct ContentView: View {
                                 }
                             }
                             .buttonStyle(.plain)
+                        case .subscription(let item):
+                            Button {
+                                selection = 2
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "arrow.clockwise")
+                                        .foregroundStyle(RemorrowStyle.violet)
+                                        .frame(width: 28)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(item.name)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(RemorrowStyle.primaryText)
+                                        Text("Next charge · " + item.nextCharge.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(RemorrowStyle.secondaryText)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -282,7 +311,7 @@ struct ContentView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
                     SectionEyebrow(title: "QUICK CAPTURE")
-                    Text("What's coming up?")
+                    Text("Save what matters")
                         .font(.system(size: 23, weight: .bold, design: .rounded))
                         .tracking(-0.5)
                 }
@@ -764,5 +793,5 @@ private struct SavedActionCard: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [SavedAction.self, ReturnItem.self], inMemory: true)
+        .modelContainer(for: [SavedAction.self, ReturnItem.self, SubscriptionItem.self], inMemory: true)
 }

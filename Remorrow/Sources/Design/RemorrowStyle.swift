@@ -1,17 +1,20 @@
 import SwiftUI
 
 enum RemorrowStyle {
-    static let ink = Color(red: 0.16, green: 0.21, blue: 0.21)
-    static let muted = Color(red: 0.43, green: 0.46, blue: 0.45)
-    static let violet = Color(red: 0.20, green: 0.35, blue: 0.33)
-    static let lilac = Color(red: 0.87, green: 0.75, blue: 0.65)
-    static let mint = Color(red: 0.75, green: 0.85, blue: 0.78)
+    static let ink = Color(red: 0.10, green: 0.12, blue: 0.15)
+    static let muted = Color(red: 0.45, green: 0.48, blue: 0.53)
+    static let violet = Color(red: 0.01, green: 0.38, blue: 0.65)
+    static let lilac = Color(red: 0.52, green: 0.75, blue: 0.93)
+    static let mint = Color(red: 0.84, green: 0.92, blue: 0.98)
+    static let deepBlue = Color(red: 0.0, green: 0.16, blue: 0.37)
+    static let blueTint = Color(red: 0.89, green: 0.94, blue: 0.99)
     static let canvas = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.09, green: 0.11, blue: 0.11, alpha: 1)
-            : UIColor(red: 0.974, green: 0.97, blue: 0.956, alpha: 1)
+            ? UIColor(red: 0.08, green: 0.10, blue: 0.14, alpha: 1)
+            : UIColor(red: 0.997, green: 0.997, blue: 1.0, alpha: 1)
     })
-    static let surface = Color(uiColor: .secondarySystemGroupedBackground)
+    static let surface = Color(uiColor: .secondarySystemBackground)
+    static let primaryAction = Color(red: 0.12, green: 0.13, blue: 0.15)
     static let primaryText = Color(uiColor: .label)
     static let secondaryText = Color(uiColor: .secondaryLabel)
 }
@@ -23,7 +26,7 @@ struct RemorrowCard<Content: View>: View {
         content
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RemorrowStyle.surface, in: RoundedRectangle(cornerRadius: 19, style: .continuous))
+            .background(RemorrowStyle.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .strokeBorder(RemorrowStyle.primaryText.opacity(0.045), lineWidth: 1)
@@ -62,7 +65,7 @@ struct RemorrowPrimaryButton: View {
             }
             .foregroundStyle(.white)
             .frame(minHeight: 54)
-            .background(RemorrowStyle.violet, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+            .background(RemorrowStyle.primaryAction, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(isBusy)

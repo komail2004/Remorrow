@@ -3,6 +3,7 @@ import SwiftUI
 struct WelcomeGuideView: View {
     let onFinish: () -> Void
     @State private var page = 0
+    private var isBlueCover: Bool { page == 0 }
     private let headings = [
         "Make room for what matters.",
         "A screenshot is enough.",
@@ -19,10 +20,12 @@ struct WelcomeGuideView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Label("remorrow", systemImage: "hourglass")
-                    .font(.system(.title3, design: .serif, weight: .semibold))
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(isBlueCover ? .white : RemorrowStyle.primaryText)
                 Spacer()
                 Button("Skip") { onFinish() }
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isBlueCover ? .white.opacity(0.85) : RemorrowStyle.secondaryText)
                     .accessibilityIdentifier("welcomeSkip")
             }
             .padding(.top, 16)
@@ -30,34 +33,35 @@ struct WelcomeGuideView: View {
             Spacer(minLength: 0)
             ZStack {
                 RoundedRectangle(cornerRadius: 32)
-                    .fill(RemorrowStyle.violet.opacity(0.09))
+                    .fill(isBlueCover ? Color.white.opacity(0.08) : RemorrowStyle.violet.opacity(0.09))
                     .frame(height: 240)
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(RemorrowStyle.violet.opacity(0.2), lineWidth: 1)
+                    .stroke(isBlueCover ? Color.white.opacity(0.35) : RemorrowStyle.violet.opacity(0.2), lineWidth: 1)
                     .frame(width: 160, height: 160)
                     .rotationEffect(.degrees(-9))
                 Image(systemName: symbols[page])
                     .font(.system(size: 78, weight: .ultraLight))
-                    .foregroundStyle(RemorrowStyle.violet)
+                    .foregroundStyle(isBlueCover ? .white : RemorrowStyle.violet)
                     .contentTransition(.symbolEffect(.replace))
             }
             .accessibilityHidden(true)
             Text("0" + String(page + 1) + " / 03")
                 .font(.caption.weight(.bold))
                 .tracking(2)
-                .foregroundStyle(RemorrowStyle.violet)
+                .foregroundStyle(isBlueCover ? .white.opacity(0.8) : RemorrowStyle.violet)
             Text(headings[page])
                 .font(.system(size: 36, weight: .semibold, design: .serif))
                 .fixedSize(horizontal: false, vertical: true)
+                .foregroundStyle(isBlueCover ? .white : RemorrowStyle.primaryText)
             Text(descriptions[page])
                 .font(.body)
-                .foregroundStyle(RemorrowStyle.secondaryText)
+                .foregroundStyle(isBlueCover ? .white.opacity(0.8) : RemorrowStyle.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             HStack(spacing: 7) {
                 ForEach(0..<3, id: \.self) { i in
                     Capsule()
-                        .fill(i == page ? RemorrowStyle.violet : RemorrowStyle.violet.opacity(0.18))
+                        .fill(i == page ? (isBlueCover ? Color.white : RemorrowStyle.violet) : (isBlueCover ? Color.white.opacity(0.24) : RemorrowStyle.violet.opacity(0.18)))
                         .frame(width: i == page ? 26 : 8, height: 7)
                 }
             }
@@ -78,7 +82,7 @@ struct WelcomeGuideView: View {
                 .foregroundStyle(.white)
                 .font(.subheadline.weight(.semibold))
                 .frame(height: 54)
-                .background(RemorrowStyle.violet, in: RoundedRectangle(cornerRadius: 16))
+                .background(isBlueCover ? RemorrowStyle.primaryAction : RemorrowStyle.violet, in: RoundedRectangle(cornerRadius: 16))
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("welcomeContinue")
@@ -86,7 +90,15 @@ struct WelcomeGuideView: View {
         }
         .padding(.horizontal, 26)
         .frame(maxWidth: .infinity)
-        .background(RemorrowStyle.canvas.ignoresSafeArea())
+        .background {
+            if isBlueCover {
+                LinearGradient(colors: [RemorrowStyle.violet, RemorrowStyle.deepBlue],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .ignoresSafeArea()
+            } else {
+                RemorrowStyle.canvas.ignoresSafeArea()
+            }
+        }
     }
 }
 

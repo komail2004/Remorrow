@@ -30,9 +30,12 @@ struct ContentView: View {
             library
                 .tabItem { Label("My plans", systemImage: "calendar") }
                 .tag(1)
+            ReturnsView()
+                .tabItem { Label("Returns", systemImage: "shippingbox") }
+                .tag(2)
             settings
                 .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(2)
+                .tag(3)
         }
         .tint(RemorrowStyle.violet)
         .sheet(isPresented: $reviewPresented) {
@@ -309,6 +312,11 @@ struct ContentView: View {
                     } else {
                         ForEach(saved) { item in
                             SavedActionCard(action: item)
+                                .contextMenu {
+                                    Button("Delete saved action", systemImage: "trash", role: .destructive) {
+                                        Task { await deleteSaved(item) }
+                                    }
+                                }
                         }
                     }
                 }
@@ -351,6 +359,18 @@ struct ContentView: View {
             }
             .background(RemorrowStyle.canvas.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    @MainActor
+    private func deleteSaved(_ action: SavedAction) async {
+        do {
+            try await scheduler.delete(kind: action.kind, externalID: action.externalID)
+            modelContext.delete(action)
+            try modelContext.save()
+            saveMessage = "Removed the saved action."
+        } catch {
+            errorMessage = "Couldn't remove this from Apple Calendar or Reminders. Nothing was deleted in Remorrow. " + error.localizedDescription
         }
     }
 

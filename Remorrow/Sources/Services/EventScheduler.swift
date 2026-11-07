@@ -13,6 +13,20 @@ enum ScheduleFailure: LocalizedError {
         case .invalidKind: "This type can't be saved yet."
         }
     }
+
+    func delete(kind: String, externalID: String) async throws {
+        if kind == ProposedActionKind.calendarEvent.rawValue {
+            guard try await store.requestFullAccessToEvents() else { throw ScheduleFailure.accessDenied }
+            guard let event = store.event(withIdentifier: externalID) else { return }
+            try store.remove(event, span: .thisEvent, commit: true)
+        } else if kind == ProposedActionKind.reminder.rawValue {
+            guard try await store.requestFullAccessToReminders() else { throw ScheduleFailure.accessDenied }
+            guard let reminder = store.calendarItem(withIdentifier: externalID) as? EKReminder else { return }
+            try store.remove(reminder, commit: true)
+        } else {
+            throw ScheduleFailure.invalidKind
+        }
+    }
 }
 
 /// Authorized writes happen here only after explicit user confirmation.
@@ -40,6 +54,7 @@ final class EventScheduler {
             reminder.calendar = calendar
             let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
             reminder.dueDateComponents = components
+            reminder.addAlarm(EKAlarm(absoluteDate: date))
             try store.save(reminder, commit: true)
             return reminder.calendarItemIdentifier
         case .shoppingReturn:

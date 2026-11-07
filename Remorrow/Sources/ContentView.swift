@@ -335,7 +335,14 @@ struct ContentView: View {
                 }
             } else {
                 ForEach(Array(upcoming.prefix(3))) { item in
-                    SavedActionCard(action: item)
+                    NavigationLink {
+                        SavedActionDetailsView(action: item) {
+                            await deleteSaved(item)
+                        }
+                    } label: {
+                        SavedActionCard(action: item)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -380,8 +387,15 @@ struct ContentView: View {
                         }
                     } else {
                         ForEach(saved) { item in
-                            SavedActionCard(action: item)
-                                .contextMenu {
+                            NavigationLink {
+                                SavedActionDetailsView(action: item) {
+                                    await deleteSaved(item)
+                                }
+                            } label: {
+                                SavedActionCard(action: item)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
                                     Button("Delete saved action", systemImage: "trash", role: .destructive) {
                                         Task { _ = await deleteSaved(item) }
                                     }

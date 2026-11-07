@@ -98,10 +98,11 @@ struct ContentView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: "hourglass")
-                .font(.system(size: 22, weight: .light))
-                .foregroundStyle(RemorrowStyle.violet)
-                .frame(width: 34, height: 38)
+            Image("RemorrowMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 36, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 .accessibilityHidden(true)
             Text("remorrow")
                 .font(.system(size: 27, weight: .semibold, design: .serif))

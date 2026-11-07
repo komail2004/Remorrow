@@ -133,6 +133,7 @@ struct ReceiptsSubscriptionsView: View {
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
                     onToggle: { toggleReturn(item) },
+                    onUpdate: { name, merchant, date in updateReturn(item, name: name, merchant: merchant, date: date) },
                     onDelete: { deleteReturn(item) }
                 )
             }
@@ -143,6 +144,7 @@ struct ReceiptsSubscriptionsView: View {
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: !item.isActive, inactiveLabel: "Paused",
                     onToggle: { toggleSubscription(item) },
+                    onUpdate: { name, merchant, date in updateSubscription(item, name: name, merchant: merchant, date: date) },
                     onDelete: { deleteSubscription(item) }
                 )
             }
@@ -255,6 +257,34 @@ struct ReceiptsSubscriptionsView: View {
         }
     }
 
+    private func updateReturn(_ item: ReturnItem, name: String, merchant: String, date: Date) {
+        item.itemName = name
+        item.merchant = merchant
+        item.deadline = date
+        do {
+            try modelContext.save()
+            Task { _ = try? await returnAlerts.schedule(item) }
+            message = "Receipt updated."
+        } catch {
+            modelContext.rollback()
+            message = "Couldn't update this receipt."
+        }
+    }
+
+    private func updateSubscription(_ item: SubscriptionItem, name: String, merchant: String, date: Date) {
+        item.name = name
+        item.merchant = merchant
+        item.nextCharge = date
+        do {
+            try modelContext.save()
+            Task { _ = try? await renewalAlerts.schedule(item) }
+            message = "Subscription updated."
+        } catch {
+            modelContext.rollback()
+            message = "Couldn't update this subscription."
+        }
+    }
+
     private func toggleReturn(_ item: ReturnItem) {
         item.isReturned.toggle()
         do {
@@ -317,8 +347,10 @@ private struct FinancialDetailsView: View {
     let inactive: Bool
     let inactiveLabel: String
     let onToggle: () -> Void
+    let onUpdate: (String, String, Date) -> Void
     let onDelete: () -> Void
     @State private var showDelete = false
+    @State private var showEdit = false
 
     var body: some View {
         NavigationStack {
@@ -367,7 +399,18 @@ private struct FinancialDetailsView: View {
             .background(RemorrowStyle.canvas.ignoresSafeArea())
             .navigationTitle("Details")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Edit") { showEdit = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
+            }
+            .sheet(isPresented: $showEdit) {
+                FinancialEditSheet(name: name, merchant: subtitle, date: date) { name, merchant, date in
+                    onUpdate(name, merchant, date)
+                    dismiss()
+                }
+            }
             .confirmationDialog("Delete this item?", isPresented: $showDelete) {
                 Button("Delete", role: .destructive) {
                     onDelete()
@@ -375,6 +418,51 @@ private struct FinancialDetailsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
+        }
+    }
+}
+
+private struct FinancialEditSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let onSave: (String, String, Date) -> Void
+    @State private var name: String
+    @State private var merchant: String
+    @State private var date: Date
+    @State private var verified = false
+
+    init(name: String, merchant: String, date: Date, onSave: @escaping (String, String, Date) -> Void) {
+        self.onSave = onSave
+        _name = State(initialValue: name)
+        _merchant = State(initialValue: merchant)
+        _date = State(initialValue: date)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Details") {
+                    TextField("Name", text: $name)
+                    TextField("Merchant", text: $merchant)
+                }
+                Section("Date") {
+                    DatePicker("Confirmed date", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                    Toggle("I've verified this date", isOn: $verified)
+                    Text("Changing the date refreshes the reminder when notifications are permitted.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Section {
+                    Button("Save changes") {
+                        onSave(name.trimmingCharacters(in: .whitespacesAndNewlines),
+                               merchant.trimmingCharacters(in: .whitespacesAndNewlines), date)
+                        dismiss()
+                    }
+                    .disabled(!verified || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .navigationTitle("Edit details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
         }
     }
 }

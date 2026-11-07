@@ -11,9 +11,9 @@ enum RemorrowStyle {
     static let canvas = Color(uiColor: UIColor { trait in
         trait.userInterfaceStyle == .dark
             ? UIColor(red: 0.08, green: 0.10, blue: 0.14, alpha: 1)
-            : UIColor(red: 0.997, green: 0.997, blue: 1.0, alpha: 1)
+            : UIColor(red: 0.974, green: 0.980, blue: 0.990, alpha: 1)
     })
-    static let surface = Color(uiColor: .secondarySystemBackground)
+    static let surface = Color(uiColor: .systemBackground)
     static let primaryAction = Color(red: 0.12, green: 0.13, blue: 0.15)
     static let primaryText = Color(uiColor: .label)
     static let secondaryText = Color(uiColor: .secondaryLabel)
@@ -29,8 +29,9 @@ struct RemorrowCard<Content: View>: View {
             .background(RemorrowStyle.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
-                    .strokeBorder(RemorrowStyle.primaryText.opacity(0.045), lineWidth: 1)
+                    .strokeBorder(RemorrowStyle.primaryText.opacity(0.035), lineWidth: 1)
             }
+            .shadow(color: RemorrowStyle.ink.opacity(0.065), radius: 17, x: 0, y: 7)
     }
 }
 

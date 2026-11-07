@@ -67,7 +67,12 @@ struct LocalRulesEngine: ExtractionEngine {
         var output: [String] = []
         for raw in normalized.components(separatedBy: "\n") {
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !line.isEmpty else { continue }
+            // A blank OCR line means a visual bubble/paragraph boundary.
+            // Do not combine actions and dates across separate speakers.
+            guard !line.isEmpty else {
+                output.append("")
+                continue
+            }
             // Ignore isolated sender labels/timestamps rather than pairing them with
             // unrelated dates in nearby bubbles.
             guard !line.matches(#"(?i)^(?:\d{1,2}:\d{2}\s*(?:am|pm)?|today|yesterday|delivered|read|messages|imessage)$"#) else { continue }
@@ -104,7 +109,7 @@ struct LocalRulesEngine: ExtractionEngine {
                 merged.append(item)
             }
         }
-        return merged
+        return merged.filter { !$0.isEmpty }
     }
 
     private static func hasAction(_ text: String) -> Bool {

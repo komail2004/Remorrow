@@ -61,6 +61,11 @@ final class ConversationExtractionTests: XCTestCase {
         XCTAssertTrue(results.isEmpty)
     }
 
+    func testSeparateBubblesDoNotInventOneCombinedTask() async throws {
+        let proposals = try await parse("Submit the assignment\n\nFriday at 5 PM")
+        XCTAssertTrue(proposals.isEmpty)
+    }
+
     func testNoPlanWithoutDateIsNotAutomaticallyInvented() async throws {
         let results = try await parse("Can you pick up the package sometime?")
         XCTAssertTrue(results.isEmpty)

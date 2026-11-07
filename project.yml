@@ -16,6 +16,7 @@ targets:
     platform: iOS
     sources:
       - path: Remorrow/Sources
+      - path: Remorrow/Resources
     dependencies:
       - target: RemorrowShareExtension
         embed: true
@@ -25,6 +26,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow
         GENERATE_INFOPLIST_FILE: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_CFBundleDisplayName: Remorrow
         INFOPLIST_KEY_CFBundleShortVersionString: "$(MARKETING_VERSION)"
         INFOPLIST_KEY_CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"

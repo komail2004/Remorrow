@@ -1,0 +1,11 @@
+# Privacy & Security Baseline
+- Explicit opt-in content: manual paste/type, selected photo or Share Extension.
+- No automatic access to SMS, email, messages or third-party app data.
+- No MVP server uploads of captured content; keep OCR and parsing on device.
+- EventKit and notification permissions are requested contextually, never assumed.
+- Use least privilege, App Group minimal handoff and platform file protection.
+- Avoid logging user messages, receipts, amounts, addresses or OCR output.
+- Define retention and deletion of source images before shipping; test deletion.
+- User actions in Remorrow must not accidentally modify unrelated Calendar/Reminders records.
+- Publish an accurate privacy policy and App Store privacy disclosures, and verify all dependencies.
+- Threat-model temporary extension storage, shared device access, notification previews and backup.

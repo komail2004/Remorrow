@@ -1,0 +1,22 @@
+name: User story
+description: Propose an Agile story
+title: "[Story] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: User story / outcome
+      placeholder: As a ... I want ... so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (Given / When / Then)
+    validations:
+      required: true
+  - type: input
+    id: trace
+    attributes:
+      label: Backlog and FR/NFR references

@@ -1,0 +1,14 @@
+# App Store Release Checklist
+- [ ] Brand/trademark clearance for Remorrow completed.
+- [ ] Bundle IDs, signing, entitlements, deployment target and test device matrix finalized.
+- [ ] Functional in-app privacy policy and support URL.
+- [ ] Apple permission purpose strings accurately match use.
+- [ ] No unauthorized access to SMS/email or other apps.
+- [ ] No incorrect claims of guaranteed parsing, return dates or notification delivery.
+- [ ] Review flow prevents accidental external Calendar/Reminders changes.
+- [ ] Screenshots and preview footage reflect real shipping features.
+- [ ] Accurate App Store privacy nutrition labels, content rating and pricing configured.
+- [ ] VoiceOver, reduced motion, large text and dark mode QA.
+- [ ] TestFlight distribution and crash/error triage complete.
+- [ ] Store review notes describe Share Extension and permissions.
+- [ ] App Review guidelines checked against current versions before submission.

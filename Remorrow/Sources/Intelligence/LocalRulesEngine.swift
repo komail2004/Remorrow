@@ -4,7 +4,7 @@ import NaturalLanguage
 /// Conservative, entirely on-device interpretation of user-supplied text and OCR.
 /// Produces suggestions, never writes to EventKit. Dates and commitment are ALWAYS reviewed.
 struct LocalRulesEngine: ExtractionEngine {
-    private static let datePattern = #"(?i)\b(?:today|tonight|tomorrow|day after tomorrow|(?:this|next)\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b"#
+    private static let datePattern = #"(?i)\b(?:today|tonight|tomorrow|day after tomorrow|(?:(?:this|next)\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b"#
     private static let timePattern = #"(?i)\b(?:at|by|around|before)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b"#
     private static let actionWords = [
         "meet", "meeting", "dinner", "lunch", "breakfast", "appointment",

@@ -17,9 +17,26 @@ struct ImageTextReader {
             request.usesLanguageCorrection = true
             let handler = VNImageRequestHandler(cgImage: cgImage)
             try handler.perform([request])
-            return (request.results ?? []).compactMap {
-                $0.topCandidates(1).first?.string
-            }.joined(separator: "\n")
+            // Vision's observation order can vary. Use a stable top-to-bottom,
+            // then left-to-right reading order for chat screenshots.
+            let observations = (request.results ?? []).sorted {
+                let delta = $0.boundingBox.midY - $1.boundingBox.midY
+                return abs(delta) > 0.025
+                    ? delta > 0
+                    : $0.boundingBox.minX < $1.boundingBox.minX
+            }
+            var lines: [String] = []
+            var previousY: CGFloat?
+            for item in observations {
+                guard let text = item.topCandidates(1).first?.string,
+                      !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+                if let previousY, previousY - item.boundingBox.midY > 0.07 {
+                    lines.append("") // Distinct visual bubble/paragraph separation.
+                }
+                lines.append(text)
+                previousY = item.boundingBox.midY
+            }
+            return lines.joined(separator: "\n")
         }.value
     }
 }

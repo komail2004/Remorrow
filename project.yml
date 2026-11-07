@@ -35,8 +35,8 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "Remorrow saves calendar events only after you review and approve them."
         INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "Remorrow saves reminders only after you review and approve them."
-        INFOPLIST_KEY_NSCameraUsageDescription: "Take a photo of text you choose to turn into a reminder."
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Choose screenshots you want Remorrow to read. Remorrow never scans your photo library."
+        INFOPLIST_KEY_NSCameraUsageDescription: "Photograph notes, receipts, or renewal notices you choose to review locally."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Choose a screenshot, receipt, or renewal notice for private on-device reading. Remorrow does not scan your library."
         CODE_SIGN_STYLE: Automatic
         SWIFT_EMIT_LOC_STRINGS: YES
   RemorrowShareExtension:

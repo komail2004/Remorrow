@@ -58,3 +58,28 @@ NFR-001–010 in Requirements Register are normative. Validate offline mode, per
 
 ## 9. Acceptance, validation and traceability
 Each FR/NFR maps to GitHub issue(s) RM-### and TC-### cases. Release requires all P0 acceptance tests, human QA on devices, privacy disclosure review, TestFlight and App Store checklist. New features are not Done without updated requirements and tests.
+
+## 10. Intelligence and interaction amendment
+**SRS-AI-01:** Extract text from explicitly selected images locally using Vision OCR; allow review/correction of the text.
+
+**SRS-AI-02:** The intelligence layer returns zero or more typed *proposals* including action kind, title, candidate date, source evidence, and named uncertainty reasons; it has no authority to create external events.
+
+**SRS-AI-03:** On supported devices, an Apple Foundation Models implementation may be selected *only* after capability/availability tests and output validation. Its API compatibility must be verified against the chosen deployment target before implementation.
+
+**SRS-AI-04:** An offline deterministic rules implementation is available when the model is unsupported/unavailable or extraction fails. Clearly communicate weaker interpretation; never disguise fallback as full semantic understanding.
+
+**SRS-AI-05:** Relative dates must be resolved using the current user-provided/reference clock, locale and timezone, with unresolved ambiguity surfaced. Year, end time, return policy and event location may not be invented.
+
+**SRS-AI-06:** If future cloud inference is added, users must explicitly opt in to sending their selected content; implement a server-side secret/key boundary and an equivalent on-device/manual path.
+
+**SRS-UX-01:** Supported capture modes: type/paste, image picker, and Share Extension for available supported content. Unsupported or unreadable content offers an editable text alternative.
+
+**SRS-UX-02:** Review UI displays each proposal and lets the user correct all fields, choose destination, and cancel; all external writes are initiated by explicit confirmation only.
+
+**SRS-UX-03:** Local-first dashboard separates Upcoming, Returns and Completed; it supports search/filter as a post-MVP enhancement.
+
+**SRS-UX-04:** All required screens support VoiceOver, Dynamic Type, high contrast, error recovery, permission denial and accessible labels.
+
+**SRS-UX-05:** Consent and privacy language must accurately reflect what content is stored or shared; no automatic reading of iMessage, email, screenshots, or other apps.
+
+See `docs/design/` for UI contract, `docs/quality/` for tests, and `docs/architecture/DATA-MODEL.md` for data lifecycle.

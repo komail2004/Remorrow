@@ -25,3 +25,12 @@
 
 ## Development
 Use GitHub Issues linked to requirement IDs, short-lived feature branches, pull requests and the [Definition of Done](docs/agile/DEFINITION-OF-DONE.md). Never add private user content or secrets to Git.
+
+## Further specifications (November 2026)
+- [Hybrid AI implementation](docs/architecture/AI-IMPLEMENTATION.md) · [ADR-0003](docs/architecture/ADR/0003-hybrid-intelligence.md)
+- [Design system](docs/design/DESIGN-SYSTEM.md) · [Screen specifications](docs/design/SCREEN-SPECS.md) · [User flows](docs/design/USER-FLOWS.md)
+- [Content and accessibility](docs/design/CONTENT-ACCESSIBILITY.md) · [Information architecture](docs/design/INFORMATION-ARCHITECTURE.md)
+- [Data model](docs/architecture/DATA-MODEL.md) · [Threat model](docs/quality/THREAT-MODEL.md)
+- [Analytics / experiment plan](docs/product/METRICS-EXPERIMENTS.md) · [Launch gates](docs/release/RELEASE-GATES.md)
+
+The `Remorrow/Sources/Intelligence` files define model-neutral output types and interfaces; production model wiring, app target configuration, and real iPhone verification remain to be implemented.

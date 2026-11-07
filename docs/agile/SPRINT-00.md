@@ -16,3 +16,12 @@ App launches on real device; working share input can be observed; permissions ca
 
 ## Risks and review
 Share Extension process lifecycle and capabilities, minimum OS support, privacy entitlements. Demo the device workflow and update backlog estimates.
+
+## Design and AI discovery additions
+- [ ] Establish design tokens and verify iOS native control ergonomics on smaller iPhone and large text.
+- [ ] Run local parser fixtures, document extraction errors and fallback outcomes.
+- [ ] Confirm Foundation Models framework/runtime availability and supported iPhones with current Xcode SDK and physical device.
+- [ ] Decide the local storage retention model and App Group isolation before implementing the Share Extension.
+- [ ] Record baseline capture -> review -> confirm UX time and accessibility checks with sanitized samples.
+- [ ] Validate no network dependency or silent external writes.
+

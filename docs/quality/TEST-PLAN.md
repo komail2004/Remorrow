@@ -25,3 +25,19 @@ Use fabricated messages, synthetic receipts, locale/date variants and generated 
 
 ## Gates
 Every P0 requirement has explicit pass/fail record; app and extension must be tested on at least two real supported iPhone configurations if available; no known data-loss or privacy blockers at launch.
+
+## Hybrid AI / UX additional scenarios
+| ID | Scenario | Expected |
+|---|---|---|
+| TC-016 | Apple model unsupported/unavailable | Local parser selected without crash or misleading label |
+| TC-017 | Model returns invented date/place | Validator rejects unsupported claims; UI requests clarification |
+| TC-018 | Multi-action text with conflicting dates | Independent proposals or explicit limited-support message |
+| TC-019 | Image OCR errors or low-quality photo | Editable transcript and manual fallback |
+| TC-020 | User denies notifications | Saved event persists; no claim alert will arrive |
+| TC-021 | VoiceOver and 200%+ text scaling | All capture/review controls reachable and understandable |
+| TC-022 | Offline execution while parsing | No user content leaves device |
+| TC-023 | Unknown merchant return policy | Confirmation required; no guessed expiry |
+| TC-024 | Retry same external save | At most one external event/reminder |
+| TC-025 | Source text contains prompt injection | Treated as data; no unauthorized tools or silent writes |
+
+Verification must include real-device tests for Foundation Models availability, Share Extension behavior, event/reminder permissions, and notifications. Test fixtures are fabricated, never personal receipts or messages.

@@ -32,3 +32,16 @@
 
 ## Dependencies
 RM-001 -> 003 -> 004 -> 005 -> 006/007 -> 008. RM-009 -> 010. RM-011 -> 012. Quality and release gate every slice.
+
+## Additional implementation-ready stories
+| ID | Epic | Priority | Points | Outcome | Requirement |
+|---|---|---|---:|---|---|
+| RM-017 | Extraction | P0 | 3 | Model-neutral candidate contract & validator | FR-023, FR-025 |
+| RM-018 | Extraction | P0 | 5 | Local rules parsing and failure fallback | FR-024, NFR-011 |
+| RM-019 | Extraction | P1 | 8 | Evaluate Foundation Models on eligible hardware, measure accuracy | FR-024 |
+| RM-020 | Experience | P0 | 5 | Reusable design components & accessible review flow | FR-026, FR-027 |
+| RM-021 | Foundation | P0 | 3 | Local data lifecycle/retention and App Group contract | NFR-012, NFR-014 |
+| RM-022 | Release | P0 | 3 | Beta analytics and pricing validation plan | NFR-013 |
+| RM-023 | Extraction | P2 | 8 | Research opt-in cloud engine and protected backend | FR-028 |
+
+**Critical sequence:** RM-001 -> RM-017/018 -> RM-003/004 -> RM-005/020 -> RM-006/007; RM-002 -> RM-009/010. These stories are specifications, not completed features. See the linked documentation before sprint planning.

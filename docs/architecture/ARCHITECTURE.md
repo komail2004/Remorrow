@@ -30,3 +30,6 @@ User submission -> normalized capture -> optional OCR -> candidate extraction ->
 - Notification scheduling limits and behavior on app termination must be tested.
 
 See `docs/architecture/ADR/`, `docs/quality/RISKS.md` and `docs/quality/TEST-PLAN.md`.
+
+## AI backend decision (ADR-0003)
+The intelligence layer is provider-independent. Prefer Apple Foundation Models when supported **and** available at runtime. The offline `LocalRulesEngine` remains the baseline for date candidates. User-selected screenshots pass through Apple Vision OCR first. A cloud fallback is an explicitly **future, opt-in** capability; no cloud keys or hidden upload in MVP. All model output is untrusted until validated and reviewed by the user. See `AI-IMPLEMENTATION.md` and `ADR/0003-hybrid-intelligence.md`.

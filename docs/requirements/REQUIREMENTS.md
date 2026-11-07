@@ -41,3 +41,17 @@
 | NFR-010 | Data lifecycle and external-event synchronization documented |
 
 All P0 stories must map to test cases and backlog IDs. Scope changes require edits to SRS, backlog and tests.
+
+## Implementation amendments
+| ID | Priority | Requirement | Verification |
+|---|---|---|---|
+| FR-023 | P0 | Provider-agnostic extraction protocol returns typed proposals only | Engine substitution test |
+| FR-024 | P0 | Apple Intelligence capability detection and graceful local fallback | Unsupported/offline tests |
+| FR-025 | P0 | Explicit source evidence and ambiguity status on proposals | UI snapshot and parser tests |
+| FR-026 | P0 | Accessible review flow for multiple proposed actions or clear single-action limit | UI and VoiceOver tests |
+| FR-027 | P0 | Error/empty/permission state design matches screen specs | UX acceptance matrix |
+| FR-028 | P1 | Optional cloud model behind user opt-in and server-managed keys | Privacy + security review before enabling |
+| NFR-011 | P0 | Engine produces no side effects: no EventKit writes or notifications | Mock integration test |
+| NFR-012 | P0 | Source content not logged or uploaded by default | Offline/network traffic audit |
+| NFR-013 | P0 | UI follows design tokens and accessibility guidelines | Design QA checklist |
+| NFR-014 | P0 | Date handling and storage documented for DST and timezone cases | Calendar fixture tests |

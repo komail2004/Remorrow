@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var totalCandidates = 1
     @State private var reviewedCount = 0
     @State private var savedCandidateCount = 0
+    @State private var activeReviewSource = ""
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showCamera = false
     @State private var pendingImageData: Data?
@@ -131,7 +132,7 @@ struct ContentView: View {
         .onChange(of: reviewPresented) { _, presented in
             // A partially saved conversation must not leave the same text
             // ready to be reanalyzed and accidentally re-saved as duplicates.
-            if !presented && savedCandidateCount > 0 {
+            if !presented && savedCandidateCount > 0 && candidate == nil {
                 draft = ""
                 pendingImageData = nil
                 selectedPhoto = nil
@@ -381,6 +382,19 @@ struct ContentView: View {
                 .foregroundStyle(RemorrowStyle.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if savedCandidateCount > 0 && candidate != nil && !reviewPresented && activeReviewSource == draft {
+                Button {
+                    reviewPresented = true
+                } label: {
+                    Label("Resume the remaining suggestions", systemImage: "arrow.uturn.forward")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(RemorrowStyle.violet)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 8)
+                }
+                .accessibilityIdentifier("resumeReview")
+            }
+
             RemorrowPrimaryButton(title: "Find what matters", systemImage: "arrow.up.right", isBusy: isAnalyzing) {
                 Task { await analyze() }
             }
@@ -605,12 +619,17 @@ struct ContentView: View {
     }
 
     private func analyze() async {
+        if !reviewPresented && savedCandidateCount > 0 && candidate != nil && activeReviewSource == draft {
+            reviewPresented = true
+            return
+        }
         isAnalyzing = true
         defer { isAnalyzing = false }
         do {
             let input = ExtractionInput(text: draft, capturedAt: Date(),
                 localeIdentifier: Locale.current.identifier, timeZoneIdentifier: TimeZone.current.identifier)
             let proposals = try await engine.extract(from: input)
+            activeReviewSource = draft
             totalCandidates = max(1, proposals.count)
             reviewedCount = 0
             savedCandidateCount = 0

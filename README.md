@@ -34,3 +34,12 @@ Use GitHub Issues linked to requirement IDs, short-lived feature branches, pull 
 - [Analytics / experiment plan](docs/product/METRICS-EXPERIMENTS.md) · [Launch gates](docs/release/RELEASE-GATES.md)
 
 The `Remorrow/Sources/Intelligence` files define model-neutral output types and interfaces; production model wiring, app target configuration, and real iPhone verification remain to be implemented.
+
+## Native iPhone UX (November 2026)
+- Today: actual due events, reminders and return deadlines, sorted chronologically.
+- Capture: typed text, explicit clipboard paste, gallery image and live iPhone camera. Source photo can be kept with a confirmed plan.
+- Review: short editable action titles, event/reminder suggestions and explicit confirmation.
+- My Plans: tap any saved plan to see its date, Apple destination, original note and attached image.
+- Identity: custom dark-ink/gold hourglass app icon and restrained typography.
+
+[UX implementation notes](docs/implementation/UX-POLISH-NOVEMBER-2026.md).

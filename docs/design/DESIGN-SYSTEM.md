@@ -43,3 +43,6 @@ Abstract folded bookmark + calendar tick, not a generic brain/sparkles. Test at 
 
 ## Definition of a polished screen
 Readable at large text, supported in light/dark, VoiceOver verified, empty/loading/error/permission states designed, dates and time zones unambiguous, no marketing claim unsupported by real behavior.
+
+## Implemented November 2026 visual revision
+The initial lavender/violet palette above is superseded. The app now uses warm off-white, an evergreen accent, native adaptive card surfaces, editorial serif display typography and a custom dark-ink/gold hourglass identity. The Today screen prioritizes user data over promotional visuals. Real-device contrast and accessibility still need validation.

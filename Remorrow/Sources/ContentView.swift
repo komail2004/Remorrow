@@ -492,6 +492,7 @@ struct ContentView: View {
             guard let pending = try SharedInbox.loadOldest() else { return }
             switch pending.payload.type {
             case "text":
+                pendingImageData = nil
                 draft = pending.payload.text ?? ""
             case "image":
                 guard let image = pending.imageData else {
@@ -523,6 +524,7 @@ struct ContentView: View {
             errorMessage = "Your clipboard doesn't contain text. Copy a message first, or choose a screenshot."
             return
         }
+        pendingImageData = nil
         draft = copied
         selection = 0
         Task { await analyze() }

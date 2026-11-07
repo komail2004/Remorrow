@@ -9,6 +9,8 @@ final class SavedAction {
     var kind: String
     var externalID: String
     var createdAt: Date
+    var sourceText: String? = nil
+    var attachmentName: String? = nil
 
     init(title: String, dueAt: Date, kind: String, externalID: String) {
         self.id = UUID()

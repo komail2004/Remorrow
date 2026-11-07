@@ -14,7 +14,7 @@ struct LocalRulesEngine: ExtractionEngine {
             let evidence = String(text[range])
             return ActionProposal(
                 kind: .reminder,
-                title: String(text.prefix(100)),
+                title: SmartTitleGenerator.title(from: text, dateEvidence: evidence),
                 sourceEvidence: evidence,
                 proposedDate: date,
                 uncertaintyFlags: ["confirmDate", "confirmActionType", "confirmTimeZone"],

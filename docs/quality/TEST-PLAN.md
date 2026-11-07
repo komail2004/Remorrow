@@ -41,3 +41,23 @@ Every P0 requirement has explicit pass/fail record; app and extension must be te
 | TC-025 | Source text contains prompt injection | Treated as data; no unauthorized tools or silent writes |
 
 Verification must include real-device tests for Foundation Models availability, Share Extension behavior, event/reminder permissions, and notifications. Test fixtures are fabricated, never personal receipts or messages.
+
+## Screenshot conversations and first-run guide (November 2026)
+| ID | Scenario | Expected |
+|---|---|---|
+| TC-026 | Screenshot has two independent dated plans | Two separate editable suggestions, no automatic saves |
+| TC-027 | OCR text spans two lines within one bubble | Joined into one action; original screenshot still available |
+| TC-028 | Date and action are in separate chat bubbles | No cross-bubble invented event |
+| TC-029 | Screenshot header says 9:41 / Today / Read | No task from UI chrome |
+| TC-030 | "Maybe dinner Friday" | Explicit tentative-commitment warning |
+| TC-031 | "Submit homework tomorrow" with no time | Visible unverified-time warning |
+| TC-032 | User skips a proposal | No external save, moves to next suggestion |
+| TC-033 | User partially saves then cancels | No stale content prompting duplicate save |
+| TC-034 | User selects screenshot from Photos | OCR and analysis open review automatically |
+| TC-035 | New installation first launch | Three-screen visual guide appears with Skip |
+| TC-036 | Skip/restart | Guide is not shown again automatically |
+| TC-037 | Guide reopened from Settings | Optional walkthrough opens without resetting stored plans |
+| TC-038 | Selected-text Action Extension | Only explicitly shared text is queued, user must approve |
+| TC-039 | Multiple shared items | Oldest imported first; no private data transferred over network |
+
+**Automated coverage:** LocalRulesEngine and ConversationExtractionTests use synthetic text for TC-026..031. TC-032..039 require integration/UI tests and real-device verification before release. An XCTest simulator build is *not* equivalent to successful iPhone sharing/camera/permissions testing.

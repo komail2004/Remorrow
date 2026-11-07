@@ -45,3 +45,10 @@ RM-001 -> 003 -> 004 -> 005 -> 006/007 -> 008. RM-009 -> 010. RM-011 -> 012. Qua
 | RM-023 | Extraction | P2 | 8 | Research opt-in cloud engine and protected backend | FR-028 |
 
 **Critical sequence:** RM-001 -> RM-017/018 -> RM-003/004 -> RM-005/020 -> RM-006/007; RM-002 -> RM-009/010. These stories are specifications, not completed features. See the linked documentation before sprint planning.
+
+## Post-audit open stories (November 2026)
+- **RM-024 (P0):** Idempotent EventKit save and crash/retry reconciliation; test duplicate-free behavior.
+- **RM-025 (P0):** iPhone UI tests for onboarding, screenshot/OCR multi-proposal review, permissions, and navigation.
+- **RM-026 (P1):** Apple Foundation Models capability spike and bounded, structured on-device conversation interpretation; real device testing required.
+- **RM-027 (P1):** Speaker/bubble-aware OCR confidence assessment; synthetic screenshots and accessibility fixtures.
+- **RM-028 (P1):** Edit external calendar/reminder details with safe rollback and source privacy controls.

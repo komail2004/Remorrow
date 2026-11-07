@@ -20,6 +20,8 @@ targets:
     dependencies:
       - target: RemorrowShareExtension
         embed: true
+      - target: RemorrowTextAction
+        embed: true
     entitlements:
       path: Remorrow/Remorrow.entitlements
     settings:
@@ -52,6 +54,24 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow.ShareExtension
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: RemorrowShareExtension/Info.plist
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Automatic
+  RemorrowTextAction:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: RemorrowTextAction
+        excludes:
+          - Info.plist
+          - RemorrowTextAction.entitlements
+    entitlements:
+      path: RemorrowTextAction/RemorrowTextAction.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow.TextAction
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: RemorrowTextAction/Info.plist
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
         CODE_SIGN_STYLE: Automatic

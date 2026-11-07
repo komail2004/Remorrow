@@ -9,6 +9,7 @@ struct ContentView: View {
     @AppStorage("currentDraft") private var draft = ""
 
     @State private var candidate: ActionProposal?
+    @State private var remainingCandidates: [ActionProposal] = []
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var isAnalyzing = false
     @State private var errorMessage: String?
@@ -45,6 +46,7 @@ struct ContentView: View {
                 ReviewView(proposal: candidate) { title, date, kind in
                     try await save(title: title, date: date, kind: kind)
                 }
+                .id(candidate.id)
             }
         }
         .alert("Remorrow", isPresented: Binding(
@@ -420,7 +422,9 @@ struct ContentView: View {
             let proposals = try await engine.extract(from: input)
             if let first = proposals.first {
                 candidate = first
+                remainingCandidates = Array(proposals.dropFirst())
             } else {
+                remainingCandidates = []
                 candidate = ActionProposal(kind: .reminder,
                     title: String(draft.prefix(100)),
                     sourceEvidence: draft,
@@ -460,9 +464,13 @@ struct ContentView: View {
             reviewPresented = false
             return
         }
-        reviewPresented = false
-        draft = ""
-        saveMessage = "Added to \(kind == .calendarEvent ? "Calendar" : "Reminders")."
+        if !remainingCandidates.isEmpty {
+            candidate = remainingCandidates.removeFirst()
+        } else {
+            reviewPresented = false
+            draft = ""
+            saveMessage = "Added to \(kind == .calendarEvent ? "Calendar" : "Reminders")."
+        }
     }
 }
 

@@ -8,6 +8,8 @@ settings:
     SWIFT_VERSION: "5.9"
     TARGETED_DEVICE_FAMILY: "1"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
 targets:
   Remorrow:
     type: application
@@ -24,6 +26,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Remorrow
+        INFOPLIST_KEY_CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        INFOPLIST_KEY_CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "Remorrow saves calendar events only after you review and approve them."
         INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "Remorrow saves reminders only after you review and approve them."

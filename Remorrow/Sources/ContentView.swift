@@ -310,6 +310,35 @@ struct ContentView: View {
             .font(.caption.weight(.medium))
             .tint(RemorrowStyle.violet)
 
+            if let pendingImageData, let image = UIImage(data: pendingImageData) {
+                HStack(spacing: 12) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 9))
+                        .accessibilityLabel("Attached source photo")
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Photo attached")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Saved with your plan after confirmation")
+                            .font(.caption2)
+                            .foregroundStyle(RemorrowStyle.secondaryText)
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        self.pendingImageData = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(RemorrowStyle.secondaryText)
+                            .font(.title3)
+                    }
+                    .accessibilityLabel("Remove attached photo")
+                }
+                .padding(11)
+                .background(RemorrowStyle.canvas, in: RoundedRectangle(cornerRadius: 12))
+            }
+
             Text("From Messages: long-press a message and copy it, then tap Paste & analyze. For supported apps, use Share → Remorrow.")
                 .font(.system(size: 11))
                 .foregroundStyle(RemorrowStyle.secondaryText)

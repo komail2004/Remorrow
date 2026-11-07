@@ -43,3 +43,6 @@ The `Remorrow/Sources/Intelligence` files define model-neutral output types and 
 - Identity: custom dark-ink/gold hourglass app icon and restrained typography.
 
 [UX implementation notes](docs/implementation/UX-POLISH-NOVEMBER-2026.md).
+
+## Receipts & subscriptions — November 2026
+The app includes a Figma-reference-inspired blue/white design and a new combined **Receipts** tab. Receipt and subscription screenshots can be selected from Photos or taken live with the iPhone camera. On-device Vision OCR proposes details, and users must explicitly verify the last return date or next subscription charge before records and optional notifications are saved. Source photos and recognized text stay on-device. See [implementation details](docs/implementation/RECEIPTS-SUBSCRIPTIONS.md).

@@ -4,6 +4,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \SavedAction.dueAt) private var saved: [SavedAction]
     @AppStorage("currentDraft") private var draft = ""
 
@@ -14,6 +15,7 @@ struct ContentView: View {
     @State private var saveMessage: String?
     @State private var reviewPresented = false
     @State private var selection = 0
+    @State private var importingShare = false
 
     private let engine = LocalRulesEngine()
     private let scheduler = EventScheduler()
@@ -56,6 +58,10 @@ struct ContentView: View {
         .onChange(of: selectedPhoto) { _, newValue in
             guard let newValue else { return }
             Task { await readPhoto(newValue) }
+        }
+        .task { await importSharedContent() }
+        .onChange(of: scenePhase) { _, newValue in
+            if newValue == .active { Task { await importSharedContent() } }
         }
     }
 
@@ -371,6 +377,37 @@ struct ContentView: View {
             saveMessage = "Removed the saved action."
         } catch {
             errorMessage = "Couldn't remove this from Apple Calendar or Reminders. Nothing was deleted in Remorrow. " + error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func importSharedContent() async {
+        guard !importingShare && !reviewPresented else { return }
+        importingShare = true
+        defer { importingShare = false }
+        do {
+            guard let pending = try SharedInbox.loadOldest() else { return }
+            switch pending.payload.type {
+            case "text":
+                draft = pending.payload.text ?? ""
+            case "image":
+                guard let image = pending.imageData else {
+                    throw SharedInboxError.invalidPayload
+                }
+                draft = try await ImageTextReader().recognize(data: image)
+            default:
+                throw SharedInboxError.invalidPayload
+            }
+            try SharedInbox.remove(pending)
+            selection = 0
+            if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                errorMessage = "The shared content had no readable text. Try pasting it manually."
+            } else {
+                await analyze()
+            }
+        } catch {
+            // Keep queued content on failure so it can be retried safely.
+            errorMessage = "Couldn't import the shared item. Reopen Remorrow or try pasting it manually."
         }
     }
 

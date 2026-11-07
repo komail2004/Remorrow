@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SavedActionDetailsView: View {
     let action: SavedAction
-    let onDelete: @MainActor () async -> Void
+    let onDelete: @MainActor () async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var askDelete = false
     @State private var isDeleting = false
@@ -78,9 +78,9 @@ struct SavedActionDetailsView: View {
             Button("Delete plan", role: .destructive) {
                 isDeleting = true
                 Task {
-                    await onDelete()
+                    let deleted = await onDelete()
                     isDeleting = false
-                    dismiss()
+                    if deleted { dismiss() }
                 }
             }
             Button("Cancel", role: .cancel) {}

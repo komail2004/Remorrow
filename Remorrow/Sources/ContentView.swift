@@ -6,11 +6,15 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \SavedAction.dueAt) private var saved: [SavedAction]
+    @Query(sort: \ReturnItem.deadline) private var returns: [ReturnItem]
     @AppStorage("currentDraft") private var draft = ""
 
     @State private var candidate: ActionProposal?
     @State private var remainingCandidates: [ActionProposal] = []
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var showCamera = false
+    @State private var pendingImageData: Data?
+    @State private var editorRevision = 0
     @State private var isAnalyzing = false
     @State private var errorMessage: String?
     @State private var saveMessage: String?
@@ -41,6 +45,13 @@ struct ContentView: View {
                 .tag(3)
         }
         .tint(RemorrowStyle.violet)
+        .fullScreenCover(isPresented: $showCamera) {
+            LiveCameraView(onPhoto: { image in
+                showCamera = false
+                Task { await processPhoto(image) }
+            }, onCancel: { showCamera = false })
+            .ignoresSafeArea()
+        }
         .sheet(isPresented: $reviewPresented) {
             if let candidate {
                 ReviewView(proposal: candidate) { title, date, kind in
@@ -207,6 +218,7 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                 }
                 TextEditor(text: $draft)
+                    .id(editorRevision)
                     .font(.system(size: 15))
                     .scrollContentBackground(.hidden)
                     .padding(10)
@@ -336,7 +348,7 @@ struct ContentView: View {
                             SavedActionCard(action: item)
                                 .contextMenu {
                                     Button("Delete saved action", systemImage: "trash", role: .destructive) {
-                                        Task { await deleteSaved(item) }
+                                        Task { _ = await deleteSaved(item) }
                                     }
                                 }
                         }
@@ -385,14 +397,17 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func deleteSaved(_ action: SavedAction) async {
+    private func deleteSaved(_ action: SavedAction) async -> Bool {
         do {
             try await scheduler.delete(kind: action.kind, externalID: action.externalID)
             modelContext.delete(action)
             try modelContext.save()
+            CaptureMediaStore.remove(named: action.attachmentName)
             saveMessage = "Removed the saved action."
+            return true
         } catch {
-            errorMessage = "Couldn't remove this from Apple Calendar or Reminders. Nothing was deleted in Remorrow. " + error.localizedDescription
+            errorMessage = "Couldn't completely remove this plan. " + error.localizedDescription
+            return false
         }
     }
 
@@ -410,6 +425,7 @@ struct ContentView: View {
                 guard let image = pending.imageData else {
                     throw SharedInboxError.invalidPayload
                 }
+                pendingImageData = image
                 draft = try await ImageTextReader().recognize(data: image)
             default:
                 throw SharedInboxError.invalidPayload
@@ -471,6 +487,7 @@ struct ContentView: View {
             guard let data = try await photo.loadTransferable(type: Data.self) else {
                 throw OCRFailure.invalidImage
             }
+            pendingImageData = data
             draft = try await ImageTextReader().recognize(data: data)
             if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 errorMessage = "No readable text found. Try another screenshot or type the details."
@@ -484,7 +501,10 @@ struct ContentView: View {
     @MainActor
     private func save(title: String, date: Date, kind: ProposedActionKind) async throws {
         let externalID = try await scheduler.save(title: title, date: date, kind: kind)
-        modelContext.insert(SavedAction(title: title, dueAt: date, kind: kind.rawValue, externalID: externalID))
+        let item = SavedAction(title: title, dueAt: date, kind: kind.rawValue, externalID: externalID)
+        item.sourceText = draft
+        if let pendingImageData { item.attachmentName = try? CaptureMediaStore.save(pendingImageData) }
+        modelContext.insert(item)
         do { try modelContext.save() }
         catch {
             errorMessage = "Saved to Apple \(kind == .calendarEvent ? "Calendar" : "Reminders"), but the local history update failed. Check the Apple app before retrying."
@@ -496,6 +516,9 @@ struct ContentView: View {
         } else {
             reviewPresented = false
             draft = ""
+            pendingImageData = nil
+            selectedPhoto = nil
+            editorRevision += 1
             saveMessage = "Added to \(kind == .calendarEvent ? "Calendar" : "Reminders")."
         }
     }

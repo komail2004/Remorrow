@@ -31,6 +31,12 @@ final class ConversationExtractionTests: XCTestCase {
         XCTAssertTrue(proposals[1].title.localizedCaseInsensitiveContains("essay"))
     }
 
+    func testWrappedMessageAndDateLineBecomeOneCandidate() async throws {
+        let proposals = try await parse("Dinner with Alex\nThursday at 7 PM")
+        XCTAssertEqual(proposals.count, 1)
+        XCTAssertTrue(proposals[0].title.localizedCaseInsensitiveContains("Dinner"))
+    }
+
     func testOCRChromeAndChatTimestampAreNotTasks() async throws {
         let input = "9:41\nMessages\nToday\nAlex\nDinner Thursday at 7 PM\nDelivered"
         let proposals = try await parse(input)
@@ -51,10 +57,12 @@ final class ConversationExtractionTests: XCTestCase {
     }
 
     func testNoTaskInDateHeaderProducesNothing() async throws {
-        XCTAssertTrue(try await parse("November 15, 2026\n9:41\nYesterday\nRead").isEmpty)
+        let results = try await parse("November 15, 2026\n9:41\nYesterday\nRead")
+        XCTAssertTrue(results.isEmpty)
     }
 
     func testNoPlanWithoutDateIsNotAutomaticallyInvented() async throws {
-        XCTAssertTrue(try await parse("Can you pick up the package sometime?").isEmpty)
+        let results = try await parse("Can you pick up the package sometime?")
+        XCTAssertTrue(results.isEmpty)
     }
 }

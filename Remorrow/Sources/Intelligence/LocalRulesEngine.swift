@@ -90,7 +90,21 @@ struct LocalRulesEngine: ExtractionEngine {
                 }
             }
         }
-        return output
+        // OCR frequently wraps a single message bubble across multiple lines.
+        // Join a dated line to the immediately preceding action line when
+        // neither one alone could produce a complete proposal.
+        var merged: [String] = []
+        for piece in output {
+            let item = piece.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let previous = merged.last,
+               hasAction(previous), !mentionsDate(previous),
+               !hasAction(item), mentionsDate(item) {
+                merged[merged.count - 1] = previous + " " + item
+            } else {
+                merged.append(item)
+            }
+        }
+        return merged
     }
 
     private static func hasAction(_ text: String) -> Bool {

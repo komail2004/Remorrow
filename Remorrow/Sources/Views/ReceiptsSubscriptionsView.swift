@@ -131,7 +131,8 @@ struct ReceiptsSubscriptionsView: View {
             .sheet(item: $editingReceipt) { item in
                 FinancialDetailsView(
                     name: item.itemName,
-                    subtitle: item.purchaseAmount.map { item.merchant + " · " + String(format: "$%.2f", $0) } ?? item.merchant,
+                    subtitle: item.merchant,
+                    amountLabel: item.purchaseAmount.map { String(format: "Paid $%.2f", $0) },
                     date: item.deadline, dateLabel: "Return deadline",
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
@@ -143,6 +144,7 @@ struct ReceiptsSubscriptionsView: View {
             .sheet(item: $editingSubscription) { item in
                 FinancialDetailsView(
                     name: item.name, subtitle: item.merchant,
+                    amountLabel: item.amount.map { String(format: "$%.2f · %@", $0, item.frequency) },
                     date: item.nextCharge, dateLabel: "Next charge",
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: !item.isActive, inactiveLabel: "Paused",
@@ -344,6 +346,7 @@ private struct FinancialDetailsView: View {
     @Environment(\.dismiss) private var dismiss
     let name: String
     let subtitle: String
+    let amountLabel: String?
     let date: Date
     let dateLabel: String
     let source: String?
@@ -371,6 +374,11 @@ private struct FinancialDetailsView: View {
                         .font(.system(size: 30, weight: .bold, design: .rounded))
                     if !subtitle.isEmpty {
                         Text(subtitle).foregroundStyle(RemorrowStyle.secondaryText)
+                    }
+                    if let amountLabel {
+                        Text(amountLabel)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(RemorrowStyle.violet)
                     }
                     RemorrowCard {
                         VStack(alignment: .leading, spacing: 8) {

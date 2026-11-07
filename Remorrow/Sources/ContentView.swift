@@ -13,6 +13,9 @@ struct ContentView: View {
 
     @State private var candidate: ActionProposal?
     @State private var remainingCandidates: [ActionProposal] = []
+    @State private var totalCandidates = 1
+    @State private var reviewedCount = 0
+    @State private var savedCandidateCount = 0
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var showCamera = false
     @State private var pendingImageData: Data?
@@ -88,9 +91,16 @@ struct ContentView: View {
         }
         .sheet(isPresented: $reviewPresented) {
             if let candidate {
-                ReviewView(proposal: candidate) { title, date, kind in
-                    try await save(title: title, date: date, kind: kind)
-                }
+                ReviewView(
+                    proposal: candidate,
+                    progressLabel: totalCandidates > 1
+                        ? "Suggestion " + String(reviewedCount + 1) + " of " + String(totalCandidates)
+                        : "",
+                    onConfirm: { title, date, kind in
+                        try await save(title: title, date: date, kind: kind)
+                    },
+                    onSkip: { skipCurrentCandidate() }
+                )
                 .id(candidate.id)
             }
         }
@@ -583,6 +593,9 @@ struct ContentView: View {
             let input = ExtractionInput(text: draft, capturedAt: Date(),
                 localeIdentifier: Locale.current.identifier, timeZoneIdentifier: TimeZone.current.identifier)
             let proposals = try await engine.extract(from: input)
+            totalCandidates = max(1, proposals.count)
+            reviewedCount = 0
+            savedCandidateCount = 0
             if let first = proposals.first {
                 candidate = first
                 remainingCandidates = Array(proposals.dropFirst())
@@ -628,11 +641,38 @@ struct ContentView: View {
             draft = try await ImageTextReader().recognize(data: data)
             if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 errorMessage = "No readable text found. Try another screenshot or type the details."
+            } else {
+                await analyze()
             }
         } catch {
             errorMessage = "Couldn't read that screenshot. Try a clearer one or type the details."
         }
         selectedPhoto = nil
+    }
+
+    @MainActor
+    private func skipCurrentCandidate() {
+        advanceAfterReview()
+    }
+
+    @MainActor
+    private func advanceAfterReview() {
+        reviewedCount += 1
+        if !remainingCandidates.isEmpty {
+            candidate = remainingCandidates.removeFirst()
+            return
+        }
+        reviewPresented = false
+        candidate = nil
+        if savedCandidateCount > 0 {
+            draft = ""
+            pendingImageData = nil
+            selectedPhoto = nil
+            editorRevision += 1
+            saveMessage = savedCandidateCount == 1
+                ? "Plan saved to your iPhone."
+                : String(savedCandidateCount) + " plans saved to your iPhone."
+        }
     }
 
     @MainActor
@@ -652,16 +692,8 @@ struct ContentView: View {
             editorRevision += 1
             return
         }
-        if !remainingCandidates.isEmpty {
-            candidate = remainingCandidates.removeFirst()
-        } else {
-            reviewPresented = false
-            draft = ""
-            pendingImageData = nil
-            selectedPhoto = nil
-            editorRevision += 1
-            saveMessage = "Added to \(kind == .calendarEvent ? "Calendar" : "Reminders")."
-        }
+        savedCandidateCount += 1
+        advanceAfterReview()
     }
 }
 

@@ -3,6 +3,8 @@ import SwiftUI
 struct ReviewView: View {
     @Environment(\.dismiss) private var dismiss
     let proposal: ActionProposal
+    let progressLabel: String
+    let onSkip: () -> Void
     let onConfirm: @MainActor (String, Date, ProposedActionKind) async throws -> Void
 
     @State private var title: String
@@ -13,9 +15,13 @@ struct ReviewView: View {
 
     init(
         proposal: ActionProposal,
-        onConfirm: @escaping @MainActor (String, Date, ProposedActionKind) async throws -> Void
+        progressLabel: String = "",
+        onConfirm: @escaping @MainActor (String, Date, ProposedActionKind) async throws -> Void,
+        onSkip: @escaping () -> Void = {}
     ) {
         self.proposal = proposal
+        self.progressLabel = progressLabel
+        self.onSkip = onSkip
         self.onConfirm = onConfirm
         _title = State(initialValue: proposal.title)
         _dueDate = State(initialValue: proposal.proposedDate ?? Date().addingTimeInterval(3600))
@@ -27,7 +33,7 @@ struct ReviewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     VStack(alignment: .leading, spacing: 8) {
-                        SectionEyebrow(title: "ALMOST THERE")
+                        SectionEyebrow(title: progressLabel.isEmpty ? "ALMOST THERE" : progressLabel)
                         Text("Review the details")
                             .font(.system(size: 34, weight: .bold, design: .rounded))
                             .tracking(-1)
@@ -112,6 +118,12 @@ struct ReviewView: View {
                         }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                    Button("Skip this suggestion") { onSkip() }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(RemorrowStyle.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .disabled(isSaving)
 
                     Text("Nothing goes to Calendar or Reminders without your approval.")
                         .font(.system(size: 12))

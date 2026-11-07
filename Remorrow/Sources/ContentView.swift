@@ -216,6 +216,19 @@ struct ContentView: View {
             .frame(height: 118)
 
             HStack(spacing: 10) {
+                Button {
+                    pasteCopiedText()
+                } label: {
+                    Label("Paste & analyze", systemImage: "doc.on.clipboard")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(RemorrowStyle.violet)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 42)
+                        .background(RemorrowStyle.violet.opacity(0.09), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(isAnalyzing)
+
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
                     Label("Add screenshot", systemImage: "photo.on.rectangle.angled")
                         .font(.system(size: 13, weight: .semibold))
@@ -225,11 +238,12 @@ struct ContentView: View {
                         .background(RemorrowStyle.violet.opacity(0.09), in: Capsule())
                 }
                 .disabled(isAnalyzing)
-                Spacer()
-                Text("Private by design")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(RemorrowStyle.secondaryText)
             }
+
+            Text("From Messages: long-press a message and copy it, then tap Paste & analyze. For supported apps, use Share → Remorrow.")
+                .font(.system(size: 11))
+                .foregroundStyle(RemorrowStyle.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
 
             RemorrowPrimaryButton(title: "Find what matters", systemImage: "arrow.up.right", isBusy: isAnalyzing) {
                 Task { await analyze() }
@@ -411,6 +425,19 @@ struct ContentView: View {
             // Keep queued content on failure so it can be retried safely.
             errorMessage = "Couldn't import the shared item. Reopen Remorrow or try pasting it manually."
         }
+    }
+
+    @MainActor
+    private func pasteCopiedText() {
+        // Read the clipboard only after an explicit button tap.
+        guard let copied = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !copied.isEmpty else {
+            errorMessage = "Your clipboard doesn't contain text. Copy a message first, or choose a screenshot."
+            return
+        }
+        draft = copied
+        selection = 0
+        Task { await analyze() }
     }
 
     private func analyze() async {

@@ -25,8 +25,33 @@ struct ContentView: View {
     private let engine = LocalRulesEngine()
     private let scheduler = EventScheduler()
 
+    private enum AgendaEntry: Identifiable {
+        case plan(SavedAction)
+        case shoppingReturn(ReturnItem)
+
+        var id: String {
+            switch self {
+            case .plan(let item): "plan-" + item.id.uuidString
+            case .shoppingReturn(let item): "return-" + item.id.uuidString
+            }
+        }
+
+        var dueAt: Date {
+            switch self {
+            case .plan(let item): item.dueAt
+            case .shoppingReturn(let item): item.deadline
+            }
+        }
+    }
+
     private var upcoming: [SavedAction] {
-        saved.filter { $0.dueAt >= Calendar.current.startOfDay(for: Date()) }
+        saved.filter { $0.dueAt >= Date().addingTimeInterval(-7 * 24 * 60 * 60) }
+    }
+
+    private var agenda: [AgendaEntry] {
+        let actions = upcoming.map { AgendaEntry.plan($0) }
+        let returns = upcomingReturns.map { AgendaEntry.shoppingReturn($0) }
+        return (actions + returns).sorted { $0.dueAt < $1.dueAt }
     }
 
     var body: some View {
@@ -125,7 +150,7 @@ struct ContentView: View {
                         .font(.system(.largeTitle, design: .serif, weight: .bold))
                 }
                 Spacer()
-                Text(String(upcoming.count + upcomingReturns.count) + " ahead")
+                Text(String(agenda.count) + " ahead")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(RemorrowStyle.violet)
                     .padding(.horizontal, 11)
@@ -139,52 +164,67 @@ struct ContentView: View {
                     Button("All plans") { selection = 1 }
                         .font(.caption.weight(.semibold))
                 }
-                if upcoming.isEmpty && upcomingReturns.isEmpty {
+                if agenda.isEmpty {
                     Text("Nothing pressing.")
                         .font(.system(.title3, design: .serif, weight: .semibold))
                     Text("Capture a message or photo below. Your next important date will appear here.")
                         .font(.subheadline)
                         .foregroundStyle(RemorrowStyle.secondaryText)
                 } else {
-                    ForEach(Array(upcoming.prefix(3))) { item in
-                        NavigationLink {
-                            SavedActionDetailsView(action: item) {
-                                await deleteSaved(item)
-                            }
-                        } label: {
-                            HStack(spacing: 12) {
-                                Image(systemName: item.kind == "calendarEvent" ? "calendar" : "checkmark.circle")
-                                    .foregroundStyle(RemorrowStyle.violet)
-                                    .frame(width: 28)
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(item.title)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(RemorrowStyle.primaryText)
-                                        .lineLimit(2)
-                                    Text(item.dueAt.formatted(date: .abbreviated, time: .shortened))
+                    ForEach(Array(agenda.prefix(5))) { entry in
+                        switch entry {
+                        case .plan(let item):
+                            NavigationLink {
+                                SavedActionDetailsView(action: item) {
+                                    await deleteSaved(item)
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: item.kind == "calendarEvent" ? "calendar" : "checkmark.circle")
+                                        .foregroundStyle(RemorrowStyle.violet)
+                                        .frame(width: 28)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(item.title)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(RemorrowStyle.primaryText)
+                                            .lineLimit(2)
+                                        Text((item.dueAt < Date() ? "Overdue · " : "")
+                                             + item.dueAt.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(item.dueAt < Date() ? .orange : RemorrowStyle.secondaryText)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "chevron.right")
                                         .font(.caption)
                                         .foregroundStyle(RemorrowStyle.secondaryText)
                                 }
-                                Spacer(minLength: 0)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(RemorrowStyle.secondaryText)
                             }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    ForEach(Array(upcomingReturns.prefix(2))) { item in
-                        HStack(spacing: 12) {
-                            Image(systemName: "shippingbox")
-                                .foregroundStyle(RemorrowStyle.violet)
-                                .frame(width: 28)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Return " + item.itemName).font(.subheadline.weight(.semibold))
-                                Text(item.deadline.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption)
-                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                            .buttonStyle(.plain)
+
+                        case .shoppingReturn(let item):
+                            Button {
+                                selection = 2
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "shippingbox")
+                                        .foregroundStyle(RemorrowStyle.violet)
+                                        .frame(width: 28)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Return " + item.itemName)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(RemorrowStyle.primaryText)
+                                        Text((item.deadline < Date() ? "Overdue · " : "")
+                                             + item.deadline.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(RemorrowStyle.secondaryText)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
                             }
-                            Spacer()
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -196,7 +236,7 @@ struct ContentView: View {
     }
 
     private var upcomingReturns: [ReturnItem] {
-        returns.filter { !$0.isReturned && $0.deadline >= Date() }
+        returns.filter { !$0.isReturned && $0.deadline >= Date().addingTimeInterval(-7 * 24 * 60 * 60) }
     }
 
     private var captureCard: some View {

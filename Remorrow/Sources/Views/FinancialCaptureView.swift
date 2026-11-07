@@ -108,14 +108,14 @@ struct FinancialCaptureView: View {
                                     .textInputAutocapitalization(.words)
                                     .textFieldStyle(.roundedBorder)
                             }
-                            if kind == .subscription {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text("Charge amount (optional)")
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(kind == .receipt ? "Total paid (optional)" : "Charge amount (optional)")
                                         .font(.caption.weight(.semibold))
                                     TextField("e.g. 12.99", text: $amount)
                                         .keyboardType(.decimalPad)
                                         .textFieldStyle(.roundedBorder)
                                 }
+                            if kind == .subscription {
                                 Picker("Renewal frequency", selection: $frequency) {
                                     ForEach(["Monthly", "Yearly", "Weekly", "Other"], id: \.self) { value in
                                         Text(value).tag(value)

@@ -86,7 +86,9 @@ struct ReceiptsSubscriptionsView: View {
                                 editingReceipt = item
                             } label: {
                                 documentRow(title: item.itemName,
-                                            detail: item.merchant.isEmpty ? "Purchase" : item.merchant,
+                                            detail: item.purchaseAmount.map {
+                                                (item.merchant.isEmpty ? "Purchase" : item.merchant) + " · " + String(format: "$%.2f", $0)
+                                            } ?? (item.merchant.isEmpty ? "Purchase" : item.merchant),
                                             date: item.deadline,
                                             kind: item.isReturned ? "Returned" : "Return by",
                                             attachment: item.attachmentName,
@@ -128,7 +130,8 @@ struct ReceiptsSubscriptionsView: View {
             }
             .sheet(item: $editingReceipt) { item in
                 FinancialDetailsView(
-                    name: item.itemName, subtitle: item.merchant,
+                    name: item.itemName,
+                    subtitle: item.purchaseAmount.map { item.merchant + " · " + String(format: "$%.2f", $0) } ?? item.merchant,
                     date: item.deadline, dateLabel: "Return deadline",
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
@@ -225,6 +228,7 @@ struct ReceiptsSubscriptionsView: View {
         do {
             if kind == .receipt {
                 let item = ReturnItem(itemName: name, merchant: merchant, deadline: date)
+                item.purchaseAmount = amount
                 item.sourceText = source.isEmpty ? nil : source
                 item.attachmentName = filename
                 modelContext.insert(item)

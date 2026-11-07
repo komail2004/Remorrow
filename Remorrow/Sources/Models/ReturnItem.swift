@@ -10,6 +10,7 @@ final class ReturnItem {
     var deadline: Date
     var createdAt: Date
     var isReturned: Bool
+    var purchaseAmount: Double? = nil
     var sourceText: String? = nil
     var attachmentName: String? = nil
 

@@ -10,6 +10,8 @@ final class ReturnItem {
     var deadline: Date
     var createdAt: Date
     var isReturned: Bool
+    var sourceText: String? = nil
+    var attachmentName: String? = nil
 
     init(itemName: String, merchant: String, deadline: Date, isReturned: Bool = false) {
         id = UUID()

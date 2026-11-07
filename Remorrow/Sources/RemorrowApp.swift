@@ -7,6 +7,6 @@ struct RemorrowApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [SavedAction.self, ReturnItem.self])
+        .modelContainer(for: [SavedAction.self, ReturnItem.self, SubscriptionItem.self])
     }
 }

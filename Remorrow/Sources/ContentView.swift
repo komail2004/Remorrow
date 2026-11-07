@@ -8,6 +8,8 @@ struct ContentView: View {
     @Query(sort: \SavedAction.dueAt) private var saved: [SavedAction]
     @Query(sort: \ReturnItem.deadline) private var returns: [ReturnItem]
     @AppStorage("currentDraft") private var draft = ""
+    @AppStorage("completedWelcomeGuideV1") private var hasCompletedWelcome = false
+    @State private var showingWelcome = false
 
     @State private var candidate: ActionProposal?
     @State private var remainingCandidates: [ActionProposal] = []
@@ -70,6 +72,13 @@ struct ContentView: View {
                 .tag(3)
         }
         .tint(RemorrowStyle.violet)
+        .fullScreenCover(isPresented: $showingWelcome) {
+            WelcomeGuideView {
+                hasCompletedWelcome = true
+                showingWelcome = false
+                Task { await importSharedContent() }
+            }
+        }
         .fullScreenCover(isPresented: $showCamera) {
             LiveCameraView(onPhoto: { image in
                 showCamera = false
@@ -97,9 +106,17 @@ struct ContentView: View {
             guard let newValue else { return }
             Task { await readPhoto(newValue) }
         }
-        .task { await importSharedContent() }
+        .task {
+            if !hasCompletedWelcome {
+                showingWelcome = true
+            } else {
+                await importSharedContent()
+            }
+        }
         .onChange(of: scenePhase) { _, newValue in
-            if newValue == .active { Task { await importSharedContent() } }
+            if newValue == .active && hasCompletedWelcome {
+                Task { await importSharedContent() }
+            }
         }
     }
 
@@ -514,7 +531,7 @@ struct ContentView: View {
 
     @MainActor
     private func importSharedContent() async {
-        guard !importingShare && !reviewPresented else { return }
+        guard !importingShare && !reviewPresented && !showingWelcome && hasCompletedWelcome else { return }
         importingShare = true
         defer { importingShare = false }
         do {

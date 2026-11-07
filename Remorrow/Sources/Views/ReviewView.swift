@@ -28,17 +28,17 @@ struct ReviewView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     VStack(alignment: .leading, spacing: 8) {
                         SectionEyebrow(title: "ALMOST THERE")
-                        Text("Make it yours.")
+                        Text("Review the details")
                             .font(.system(size: 34, weight: .bold, design: .rounded))
                             .tracking(-1)
-                        Text("We picked out a possible plan. Check the details before it goes anywhere.")
+                        Text("Edit the title and date before saving to your iPhone.")
                             .font(.subheadline)
                             .foregroundStyle(RemorrowStyle.secondaryText)
                     }
 
                     RemorrowCard {
                         VStack(alignment: .leading, spacing: 20) {
-                            Label("YOUR PLAN", systemImage: "sparkles.rectangle.stack")
+                            Label("SUGGESTED PLAN", systemImage: "checkmark.circle")
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .tracking(1.5)
                                 .foregroundStyle(RemorrowStyle.violet)

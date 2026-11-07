@@ -29,7 +29,7 @@ enum SmartTitleGenerator {
         result = result.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",.;:!?-–")))
         // Removing a date often leaves a dangling "on", "by", or "at".
-        result = result.replacingOccurrences(of: #"(?i)\\s+(?:on|at|by|before|around|for)$"#,
+        result = result.replacingOccurrences(of: #"(?i)\s+(?:on|at|by|before|around|for)$"#,
                                              with: "", options: .regularExpression)
         if let separator = result.firstIndex(where: { ".;\n".contains($0) }) {
             let first = String(result[..<separator])

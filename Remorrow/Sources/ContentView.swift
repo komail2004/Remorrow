@@ -85,7 +85,6 @@ struct ContentView: View {
                     header
                     hero
                     captureCard
-                    upcomingSection
                     philosophyFooter
                 }
                 .padding(.horizontal, 22)
@@ -98,36 +97,19 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center) {
-            HStack(spacing: 11) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(RemorrowStyle.violet)
-                        .frame(width: 45, height: 45)
-                    Image(systemName: "bookmark.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .rotationEffect(.degrees(-13))
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("remorrow")
-                        .font(.system(size: 25, weight: .heavy, design: .rounded))
-                        .tracking(-1.3)
-                    Text("the little things, remembered.")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(RemorrowStyle.secondaryText)
-                }
-            }
-            Spacer()
-            Circle()
-                .fill(RemorrowStyle.surface)
-                .frame(width: 43, height: 43)
-                .overlay {
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(RemorrowStyle.violet)
-                }
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "hourglass")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(RemorrowStyle.violet)
+                .frame(width: 34, height: 38)
                 .accessibilityHidden(true)
+            Text("remorrow")
+                .font(.system(size: 27, weight: .semibold, design: .serif))
+                .tracking(-1)
+            Spacer()
+            Label("On device", systemImage: "lock")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(RemorrowStyle.secondaryText)
         }
     }
 
@@ -518,7 +500,7 @@ struct ContentView: View {
             } else {
                 remainingCandidates = []
                 candidate = ActionProposal(kind: .reminder,
-                    title: String(draft.prefix(100)),
+                    title: SmartTitleGenerator.title(from: draft),
                     sourceEvidence: draft,
                     uncertaintyFlags: ["No date found; set one manually"],
                     origin: .localRules)
@@ -575,6 +557,10 @@ struct ContentView: View {
         catch {
             errorMessage = "Saved to Apple \(kind == .calendarEvent ? "Calendar" : "Reminders"), but the local history update failed. Check the Apple app before retrying."
             reviewPresented = false
+            draft = ""
+            pendingImageData = nil
+            selectedPhoto = nil
+            editorRevision += 1
             return
         }
         if !remainingCandidates.isEmpty {
@@ -620,5 +606,5 @@ private struct SavedActionCard: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: SavedAction.self, inMemory: true)
+        .modelContainer(for: [SavedAction.self, ReturnItem.self], inMemory: true)
 }

@@ -9,6 +9,7 @@ final class TextActionViewController: UIViewController {
     private let saveButton = UIButton(type: .system)
     private var selectedText: String?
     private var isSaving = false
+    private var savedSuccessfully = false
     private let groupID = "group.com.komail.Remorrow"
 
     override func viewDidLoad() {
@@ -111,6 +112,10 @@ final class TextActionViewController: UIViewController {
     }
 
     @objc private func saveSelectedText() {
+        if savedSuccessfully {
+            extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+            return
+        }
         guard !isSaving else { return }
         let text = preview.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else {
@@ -135,8 +140,10 @@ final class TextActionViewController: UIViewController {
             // Same contract as the existing Share Extension and SharedInbox reader.
             try data.write(to: folder.appendingPathComponent(id + ".json"), options: .atomic)
             statusLabel.text = "Saved. Open Remorrow to review and confirm."
-            saveButton.setTitle("Saved", for: .normal)
-            saveButton.isEnabled = false
+            savedSuccessfully = true
+            isSaving = false
+            saveButton.setTitle("Done", for: .normal)
+            saveButton.isEnabled = true
         } catch {
             isSaving = false
             saveButton.isEnabled = true

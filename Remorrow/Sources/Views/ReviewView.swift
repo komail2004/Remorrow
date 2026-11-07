@@ -86,9 +86,22 @@ struct ReviewView: View {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .foregroundStyle(.orange)
-                            Text("Please confirm the date and action type. Extracted details may not be exact.")
-                                .font(.system(size: 13))
-                                .foregroundStyle(RemorrowStyle.primaryText)
+                            VStack(alignment: .leading, spacing: 5) {
+                                if proposal.uncertaintyFlags.contains("confirmCommitment") {
+                                    Text("This sounded tentative. Check whether the plan is actually confirmed.")
+                                }
+                                if proposal.uncertaintyFlags.contains("timeNotSpecified") {
+                                    Text("No time was found. The displayed time is only a starting point—choose the correct one.")
+                                } else if proposal.uncertaintyFlags.contains("confirmTime") {
+                                    Text("The time was unclear. Check AM/PM and the actual due time.")
+                                }
+                                if proposal.uncertaintyFlags.contains("confirmRelativeDate") {
+                                    Text("Relative dates such as 'next Friday' may be ambiguous. Verify the day.")
+                                }
+                                Text("Review the date, title and action type before saving.")
+                            }
+                            .font(.system(size: 13))
+                            .foregroundStyle(RemorrowStyle.primaryText)
                         }
                         .padding(15)
                         .frame(maxWidth: .infinity, alignment: .leading)

@@ -83,7 +83,7 @@ struct ReturnsView: View {
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingAdd) {
                 AddReturnView { item in
-                    try modelContext.insert(item)
+                    modelContext.insert(item)
                     try modelContext.save()
                     do {
                         let scheduled = try await notifications.schedule(item)

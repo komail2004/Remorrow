@@ -13,23 +13,9 @@ enum ScheduleFailure: LocalizedError {
         case .invalidKind: "This type can't be saved yet."
         }
     }
-
-    func delete(kind: String, externalID: String) async throws {
-        if kind == ProposedActionKind.calendarEvent.rawValue {
-            guard try await store.requestFullAccessToEvents() else { throw ScheduleFailure.accessDenied }
-            guard let event = store.event(withIdentifier: externalID) else { return }
-            try store.remove(event, span: .thisEvent, commit: true)
-        } else if kind == ProposedActionKind.reminder.rawValue {
-            guard try await store.requestFullAccessToReminders() else { throw ScheduleFailure.accessDenied }
-            guard let reminder = store.calendarItem(withIdentifier: externalID) as? EKReminder else { return }
-            try store.remove(reminder, commit: true)
-        } else {
-            throw ScheduleFailure.invalidKind
-        }
-    }
 }
 
-/// Authorized writes happen here only after explicit user confirmation.
+/// All system changes happen only following explicit review and confirmation.
 @MainActor
 final class EventScheduler {
     private let store = EKEventStore()
@@ -41,7 +27,7 @@ final class EventScheduler {
             let event = EKEvent(eventStore: store)
             event.title = title
             event.startDate = date
-            event.endDate = date.addingTimeInterval(3600)  // editable duration arrives in later sprint
+            event.endDate = date.addingTimeInterval(3600)
             guard let calendar = store.defaultCalendarForNewEvents else { throw ScheduleFailure.noCalendar }
             event.calendar = calendar
             try store.save(event, span: .thisEvent)
@@ -58,6 +44,20 @@ final class EventScheduler {
             try store.save(reminder, commit: true)
             return reminder.calendarItemIdentifier
         case .shoppingReturn:
+            throw ScheduleFailure.invalidKind
+        }
+    }
+
+    func delete(kind: String, externalID: String) async throws {
+        if kind == ProposedActionKind.calendarEvent.rawValue {
+            guard try await store.requestFullAccessToEvents() else { throw ScheduleFailure.accessDenied }
+            guard let event = store.event(withIdentifier: externalID) else { return }
+            try store.remove(event, span: .thisEvent, commit: true)
+        } else if kind == ProposedActionKind.reminder.rawValue {
+            guard try await store.requestFullAccessToReminders() else { throw ScheduleFailure.accessDenied }
+            guard let reminder = store.calendarItem(withIdentifier: externalID) as? EKReminder else { return }
+            try store.remove(reminder, commit: true)
+        } else {
             throw ScheduleFailure.invalidKind
         }
     }

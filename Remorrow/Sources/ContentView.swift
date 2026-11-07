@@ -153,6 +153,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 25) {
                     header
                     hero
+                    captureShortcuts
                     captureCard
                     philosophyFooter
                 }
@@ -166,21 +167,117 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Image("RemorrowMark")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .accessibilityHidden(true)
-            Text("remorrow")
-                .font(.system(size: 27, weight: .bold, design: .rounded))
-                .tracking(-1)
-            Spacer()
-            Label("On device", systemImage: "lock")
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(RemorrowStyle.secondaryText)
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 11) {
+                Image("RemorrowMark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 38, height: 38)
+                    .clipShape(RoundedRectangle(cornerRadius: 11))
+                Text("remorrow")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .tracking(-0.7)
+                Spacer()
+                Image(systemName: "bell.badge")
+                    .font(.system(size: 19, weight: .medium))
+                    .accessibilityLabel("Upcoming priorities")
+            }
+            .foregroundStyle(.white)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("YOUR LIFE, IN FOCUS")
+                    .font(.caption2.weight(.bold))
+                    .tracking(2)
+                    .foregroundStyle(.white.opacity(0.74))
+                Text("What's next,\nall in one place.")
+                    .font(.system(size: 31, weight: .bold, design: .rounded))
+                    .tracking(-0.6)
+                    .foregroundStyle(.white)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Important moments, receipts and renewal dates—organized privately on your iPhone.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.82))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 27, style: .continuous)
+                .fill(LinearGradient(colors: [RemorrowStyle.violet, RemorrowStyle.deepBlue],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(alignment: .topTrailing) {
+                    Circle()
+                        .stroke(.white.opacity(0.13), lineWidth: 26)
+                        .frame(width: 190, height: 190)
+                        .offset(x: 88, y: -80)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 27))
+        }
+    }
+
+    private var captureShortcuts: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Quick capture")
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                Spacer()
+                Text("ON DEVICE")
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.5)
+                    .foregroundStyle(RemorrowStyle.secondaryText)
+            }
+            HStack(spacing: 12) {
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    featureTile(
+                        "From screenshot",
+                        subtitle: "Find plans in chats",
+                        symbol: "text.viewfinder",
+                        colors: [Color(red: 0.40, green: 0.69, blue: 0.90), RemorrowStyle.deepBlue]
+                    )
+                }
+                .buttonStyle(.plain)
+                Button {
+                    selection = 2
+                } label: {
+                    featureTile(
+                        "Receipts & more",
+                        subtitle: "Returns and renewals",
+                        symbol: "receipt",
+                        colors: [Color(red: 0.34, green: 0.52, blue: 0.74), Color(red: 0.05, green: 0.24, blue: 0.45)]
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func featureTile(_ title: String, subtitle: String,
+                             symbol: String, colors: [Color]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Spacer()
+                Image(systemName: symbol)
+                    .font(.system(size: 38, weight: .ultraLight))
+                    .foregroundStyle(.white.opacity(0.86))
+                    .frame(height: 61)
+            }
+            Spacer()
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+            Text(subtitle)
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.78))
+                .lineLimit(2)
+        }
+        .padding(15)
+        .frame(maxWidth: .infinity, minHeight: 154, alignment: .leading)
+        .background(
+            LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: RoundedRectangle(cornerRadius: 21, style: .continuous)
+        )
     }
 
     private var hero: some View {

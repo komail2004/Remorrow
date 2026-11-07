@@ -14,6 +14,8 @@ enum SmartTitleGenerator {
             #"(?i)^(?:hey|hi|hello)[!,.:\s]+"#,
             #"(?i)^(?:please\s+)?(?:can|could|would)\s+you\s+(?:please\s+)?(?:remind\s+me\s+to\s+|remember\s+to\s+)?"#,
             #"(?i)^(?:please\s+)?(?:remind\s+me\s+to|remember\s+to|don't\s+forget\s+to|note\s+to|reminder\s*[:\-]|todo\s*[:\-]|task\s*[:\-])\s*"#,
+            #"(?i)^(?:just\s+)?(?:a\s+)?(?:quick\s+)?reminder(?:\s+that)?\s*[:,\-]?\s*"#,
+            #"(?i)^(?:i\s+need\s+to|we\s+need\s+to|make\s+sure\s+to)\s+"#,
             #"(?i)^(?:please\s+)"#
         ]
         for prefix in prefixes {

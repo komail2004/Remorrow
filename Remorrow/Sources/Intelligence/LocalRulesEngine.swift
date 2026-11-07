@@ -19,7 +19,7 @@ struct LocalRulesEngine: ExtractionEngine {
             let sentence = sentences.first(where: { $0.overlaps(range) })
                 .map { String(text[$0]) } ?? text
             return ActionProposal(
-                kind: .reminder,
+                kind: Self.suggestedKind(for: sentence),
                 title: SmartTitleGenerator.title(from: sentence, dateEvidence: evidence),
                 sourceEvidence: evidence,
                 proposedDate: date,
@@ -27,5 +27,15 @@ struct LocalRulesEngine: ExtractionEngine {
                 origin: .localRules
             )
         }
+    }
+    private static func suggestedKind(for sentence: String) -> ProposedActionKind {
+        let text = sentence.lowercased()
+        let reminders = ["remind me", "remember to", "don't forget", "submit", "finish",
+                         "pay", "buy", "send", "return", "cancel", "prepare"]
+        if reminders.contains(where: { text.contains($0) }) { return .reminder }
+        let events = ["meeting", "meet with", "dinner", "lunch", "appointment",
+                      "concert", "interview", "flight", "party", "reservation"]
+        if events.contains(where: { text.contains($0) }) { return .calendarEvent }
+        return .reminder
     }
 }

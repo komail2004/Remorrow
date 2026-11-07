@@ -132,61 +132,88 @@ struct ContentView: View {
     }
 
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 23) {
-            HStack {
-                Label("YOUR SPACE TO REMEMBER", systemImage: "sparkle")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .tracking(1.5)
-                    .foregroundStyle(.white.opacity(0.8))
-                Spacer()
-                Image(systemName: "arrow.up.right")
-                    .foregroundStyle(.white.opacity(0.65))
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Less on your mind.\nMore in your day.")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .tracking(-1.25)
-                    .foregroundStyle(.white)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("Bring the things you want to remember.\nWe'll help you make a plan.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.white.opacity(0.82))
-                    .lineSpacing(3)
-            }
-
-            HStack(spacing: 10) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 17))
-                Text(upcoming.isEmpty ? "A fresh start, just for you" : "\(upcoming.count) upcoming \(upcoming.count == 1 ? "plan" : "plans")")
-                    .font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(.white.opacity(0.18), in: Capsule())
-        }
-        .padding(25)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 30, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Color(red: 0.34, green: 0.24, blue: 0.76),
-                             Color(red: 0.51, green: 0.42, blue: 0.92),
-                             Color(red: 0.70, green: 0.55, blue: 0.91)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-                .overlay(alignment: .topTrailing) {
-                    Circle()
-                        .strokeBorder(.white.opacity(0.12), lineWidth: 35)
-                        .frame(width: 230, height: 230)
-                        .offset(x: 110, y: -96)
-                        .clipped()
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                        .font(.subheadline)
+                        .foregroundStyle(RemorrowStyle.secondaryText)
+                    Text("Today")
+                        .font(.system(.largeTitle, design: .serif, weight: .bold))
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                Spacer()
+                Text(String(upcoming.count + upcomingReturns.count) + " ahead")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(RemorrowStyle.violet)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
+                    .background(RemorrowStyle.violet.opacity(0.08), in: Capsule())
+            }
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    SectionEyebrow(title: "UP NEXT")
+                    Spacer()
+                    Button("All plans") { selection = 1 }
+                        .font(.caption.weight(.semibold))
+                }
+                if upcoming.isEmpty && upcomingReturns.isEmpty {
+                    Text("Nothing pressing.")
+                        .font(.system(.title3, design: .serif, weight: .semibold))
+                    Text("Capture a message or photo below. Your next important date will appear here.")
+                        .font(.subheadline)
+                        .foregroundStyle(RemorrowStyle.secondaryText)
+                } else {
+                    ForEach(Array(upcoming.prefix(3))) { item in
+                        NavigationLink {
+                            SavedActionDetailsView(action: item) {
+                                await deleteSaved(item)
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: item.kind == "calendarEvent" ? "calendar" : "checkmark.circle")
+                                    .foregroundStyle(RemorrowStyle.violet)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(item.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(RemorrowStyle.primaryText)
+                                        .lineLimit(2)
+                                    Text(item.dueAt.formatted(date: .abbreviated, time: .shortened))
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    ForEach(Array(upcomingReturns.prefix(2))) { item in
+                        HStack(spacing: 12) {
+                            Image(systemName: "shippingbox")
+                                .foregroundStyle(RemorrowStyle.violet)
+                                .frame(width: 28)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Return " + item.itemName).font(.subheadline.weight(.semibold))
+                                Text(item.deadline.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+            }
+            .padding(19)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RemorrowStyle.surface, in: RoundedRectangle(cornerRadius: 18))
         }
-        .accessibilityElement(children: .combine)
+    }
+
+    private var upcomingReturns: [ReturnItem] {
+        returns.filter { !$0.isReturned && $0.deadline >= Date() }
     }
 
     private var captureCard: some View {
@@ -227,30 +254,38 @@ struct ContentView: View {
             }
             .frame(height: 118)
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button {
                     pasteCopiedText()
                 } label: {
-                    Label("Paste & analyze", systemImage: "doc.on.clipboard")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(RemorrowStyle.violet)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 42)
-                        .background(RemorrowStyle.violet.opacity(0.09), in: Capsule())
+                    Label("Paste", systemImage: "doc.on.clipboard")
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bordered)
+                .disabled(isAnalyzing)
+
+                Button {
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        showCamera = true
+                    } else {
+                        errorMessage = "Camera isn't available in this simulator. Use your iPhone or Photos."
+                    }
+                } label: {
+                    Label("Camera", systemImage: "camera")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
                 .disabled(isAnalyzing)
 
                 PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                    Label("Add screenshot", systemImage: "photo.on.rectangle.angled")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(RemorrowStyle.violet)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 42)
-                        .background(RemorrowStyle.violet.opacity(0.09), in: Capsule())
+                    Label("Photos", systemImage: "photo")
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
+                .buttonStyle(.bordered)
                 .disabled(isAnalyzing)
             }
+            .font(.caption.weight(.medium))
+            .tint(RemorrowStyle.violet)
 
             Text("From Messages: long-press a message and copy it, then tap Paste & analyze. For supported apps, use Share → Remorrow.")
                 .font(.system(size: 11))
@@ -477,6 +512,23 @@ struct ContentView: View {
             reviewPresented = true
         } catch {
             errorMessage = "Couldn't analyze that yet. You can edit the text or try again."
+        }
+    }
+
+    @MainActor
+    private func processPhoto(_ data: Data) async {
+        isAnalyzing = true
+        defer { isAnalyzing = false }
+        do {
+            pendingImageData = data
+            draft = try await ImageTextReader().recognize(data: data)
+            if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                errorMessage = "No readable text. Retake the photo or type the details."
+            } else {
+                await analyze()
+            }
+        } catch {
+            errorMessage = "Couldn't read this photo. Try again with clearer text."
         }
     }
 

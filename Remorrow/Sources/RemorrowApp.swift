@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct RemorrowApp: App {
@@ -6,5 +7,6 @@ struct RemorrowApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: SavedAction.self)
     }
 }

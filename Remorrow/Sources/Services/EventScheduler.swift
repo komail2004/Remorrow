@@ -1,0 +1,49 @@
+import Foundation
+import EventKit
+
+enum ScheduleFailure: LocalizedError {
+    case accessDenied
+    case noCalendar
+    case invalidKind
+
+    var errorDescription: String? {
+        switch self {
+        case .accessDenied: "Calendar or Reminders access is disabled. You can allow it in Settings."
+        case .noCalendar: "No writable calendar or reminders list was found."
+        case .invalidKind: "This type can't be saved yet."
+        }
+    }
+}
+
+/// Authorized writes happen here only after explicit user confirmation.
+@MainActor
+final class EventScheduler {
+    private let store = EKEventStore()
+
+    func save(title: String, date: Date, kind: ProposedActionKind) async throws -> String {
+        switch kind {
+        case .calendarEvent:
+            guard try await store.requestFullAccessToEvents() else { throw ScheduleFailure.accessDenied }
+            let event = EKEvent(eventStore: store)
+            event.title = title
+            event.startDate = date
+            event.endDate = date.addingTimeInterval(3600)  // editable duration arrives in later sprint
+            guard let calendar = store.defaultCalendarForNewEvents else { throw ScheduleFailure.noCalendar }
+            event.calendar = calendar
+            try store.save(event, span: .thisEvent)
+            return event.eventIdentifier ?? UUID().uuidString
+        case .reminder:
+            guard try await store.requestFullAccessToReminders() else { throw ScheduleFailure.accessDenied }
+            let reminder = EKReminder(eventStore: store)
+            reminder.title = title
+            guard let calendar = store.defaultCalendarForNewReminders() else { throw ScheduleFailure.noCalendar }
+            reminder.calendar = calendar
+            let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            reminder.dueDateComponents = components
+            try store.save(reminder, commit: true)
+            return reminder.calendarItemIdentifier
+        case .shoppingReturn:
+            throw ScheduleFailure.invalidKind
+        }
+    }
+}

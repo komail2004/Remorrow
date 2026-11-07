@@ -128,6 +128,16 @@ struct ContentView: View {
                 Task { await importSharedContent() }
             }
         }
+        .onChange(of: reviewPresented) { _, presented in
+            // A partially saved conversation must not leave the same text
+            // ready to be reanalyzed and accidentally re-saved as duplicates.
+            if !presented && savedCandidateCount > 0 {
+                draft = ""
+                pendingImageData = nil
+                selectedPhoto = nil
+                editorRevision += 1
+            }
+        }
     }
 
     private var home: some View {
@@ -512,6 +522,14 @@ struct ContentView: View {
                                 .font(.subheadline)
                         }
                     }
+                    Button {
+                        showingWelcome = true
+                    } label: {
+                        Label("How Remorrow works", systemImage: "book.closed")
+                            .foregroundStyle(RemorrowStyle.violet)
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .padding(.vertical, 7)
                     Text("Version 0.1 • Early preview")
                         .font(.footnote)
                         .foregroundStyle(RemorrowStyle.secondaryText)

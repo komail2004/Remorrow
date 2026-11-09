@@ -27,7 +27,8 @@ struct DailyBriefingCard: View {
                 ForEach(urgent) { entry in
                     HStack(spacing: 10) {
                         Image(systemName: entry.kind == "subscription" ? "arrow.clockwise"
-                              : (entry.kind == "return" ? "shippingbox" : "checkmark.circle"))
+                              : (entry.kind == "return" ? "shippingbox" :
+                                 (entry.kind == "warranty" ? "checkmark.shield" : "checkmark.circle")))
                             .foregroundStyle(RemorrowStyle.violet)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(entry.title).font(.subheadline.weight(.semibold)).lineLimit(2)

@@ -40,12 +40,14 @@ struct ContentView: View {
     private enum AgendaEntry: Identifiable {
         case plan(SavedAction)
         case shoppingReturn(ReturnItem)
+        case warranty(ReturnItem)
         case subscription(SubscriptionItem)
 
         var id: String {
             switch self {
             case .plan(let item): "plan-" + item.id.uuidString
             case .shoppingReturn(let item): "return-" + item.id.uuidString
+            case .warranty(let item): "warranty-" + item.id.uuidString
             case .subscription(let item): "subscription-" + item.id.uuidString
             }
         }
@@ -54,6 +56,7 @@ struct ContentView: View {
             switch self {
             case .plan(let item): item.dueAt
             case .shoppingReturn(let item): item.deadline
+            case .warranty(let item): item.warrantyExpiresAt ?? item.createdAt
             case .subscription(let item): item.nextCharge
             }
         }
@@ -66,9 +69,12 @@ struct ContentView: View {
     private var agenda: [AgendaEntry] {
         let actions = upcoming.map { AgendaEntry.plan($0) }
         let returns = upcomingReturns.map { AgendaEntry.shoppingReturn($0) }
+        let warranties = returns.filter {
+            ($0.warrantyExpiresAt ?? .distantPast) >= Date().addingTimeInterval(-7 * 24 * 60 * 60)
+        }.map { AgendaEntry.warranty($0) }
         let charges = subscriptions.filter { $0.isActive && $0.nextCharge >= Date().addingTimeInterval(-7 * 24 * 60 * 60) }
             .map { AgendaEntry.subscription($0) }
-        return (actions + returns + charges).sorted { $0.dueAt < $1.dueAt }
+        return (actions + returns + warranties + charges).sorted { $0.dueAt < $1.dueAt }
     }
 
     private var briefing: DailyBriefing {
@@ -79,11 +85,17 @@ struct ContentView: View {
             BriefingEntry(id: "receipt-" + $0.id.uuidString, title: "Return " + $0.itemName,
                           dueAt: $0.deadline, kind: "return")
         }
+        let warranties = returns.compactMap { item -> BriefingEntry? in
+            guard let deadline = item.warrantyExpiresAt else { return nil }
+            return BriefingEntry(id: "warranty-" + item.id.uuidString,
+                                 title: "Warranty for " + item.itemName,
+                                 dueAt: deadline, kind: "warranty")
+        }
         let charges = subscriptions.filter { $0.isActive }.map {
             BriefingEntry(id: "charge-" + $0.id.uuidString, title: $0.name,
                           dueAt: $0.nextCharge, kind: "subscription")
         }
-        return DailyBriefing.build(items: plans + purchases + charges)
+        return DailyBriefing.build(items: plans + purchases + warranties + charges)
     }
 
     private var briefingFingerprint: String {
@@ -403,6 +415,29 @@ struct ContentView: View {
                                             .foregroundStyle(RemorrowStyle.primaryText)
                                         Text((item.deadline < Date() ? "Overdue · " : "")
                                              + item.deadline.formatted(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(RemorrowStyle.secondaryText)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        case .warranty(let item):
+                            Button {
+                                selection = 2
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "checkmark.shield")
+                                        .foregroundStyle(RemorrowStyle.violet)
+                                        .frame(width: 28)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Warranty for " + item.itemName)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(RemorrowStyle.primaryText)
+                                        Text("Expires · " + (item.warrantyExpiresAt ?? item.createdAt).formatted(date: .abbreviated, time: .omitted))
                                             .font(.caption)
                                             .foregroundStyle(RemorrowStyle.secondaryText)
                                     }

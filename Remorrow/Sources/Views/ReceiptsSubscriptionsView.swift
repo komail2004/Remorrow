@@ -103,8 +103,11 @@ struct ReceiptsSubscriptionsView: View {
                                             detail: item.purchaseAmount.map {
                                                 (item.merchant.isEmpty ? "Purchase" : item.merchant) + " · " + String(format: "$%.2f", $0)
                                             } ?? (item.merchant.isEmpty ? "Purchase" : item.merchant),
-                                            date: item.deadline,
-                                            kind: item.isReturned ? "Returned" : (item.hasConfirmedReturnDeadline ? "Return by" : "Receipt saved"),
+                                            date: item.hasConfirmedReturnDeadline ? item.deadline :
+                                                  (item.warrantyExpiresAt ?? item.createdAt),
+                                            kind: item.isReturned ? "Returned" :
+                                                  (item.hasConfirmedReturnDeadline ? "Return by" :
+                                                   (item.warrantyExpiresAt == nil ? "Saved" : "Warranty ends")),
                                             attachment: item.attachmentName,
                                             symbol: "shippingbox")
                             }

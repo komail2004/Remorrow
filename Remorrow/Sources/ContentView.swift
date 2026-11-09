@@ -738,6 +738,19 @@ struct ContentView: View {
                     .onChange(of: dailyBriefingHour) { _, _ in
                         if dailyBriefingEnabled { Task { await configureDailyBriefing() } }
                     }
+                    RemorrowCard {
+                        VStack(alignment: .leading, spacing: 9) {
+                            Label("Siri & Shortcuts", systemImage: "mic")
+                                .font(.headline)
+                                .foregroundStyle(RemorrowStyle.violet)
+                            Text("Find “Remember with Remorrow” in Apple's Shortcuts app. Choose text or connect a clipboard action, then open Remorrow to review it.")
+                                .font(.subheadline)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
+                            Text("The shortcut never reads Messages automatically.")
+                                .font(.caption)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
+                        }
+                    }
                     Button {
                         showingWelcome = true
                     } label: {

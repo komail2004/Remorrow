@@ -156,6 +156,9 @@ struct ContentView: View {
         }
         .task {
             WidgetSnapshotWriter.publish(briefing: briefing, allowDetails: showDetailsInWidgets)
+            if ProcessInfo.processInfo.arguments.contains("--remorrow-ui-guide") {
+                hasCompletedWelcome = false
+            }
             if !hasCompletedWelcome {
                 showingWelcome = true
             } else {

@@ -65,6 +65,20 @@ struct ReceiptsSubscriptionsView: View {
                     }
                     .pickerStyle(.segmented)
 
+                    if segment == .subscription && !subscriptions.isEmpty {
+                        VStack(alignment: .leading, spacing: 7) {
+                            SectionEyebrow(title: "PROJECTED MONTHLY SPEND")
+                            Text(String(format: "$%.2f", SubscriptionForecast.estimatedMonthlyTotal(subscriptions)))
+                                .font(.system(size: 31, weight: .bold, design: .rounded))
+                            Text("Estimate from the amount and cadence you entered—not actual bank charges.")
+                                .font(.caption)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
+                        }
+                        .padding(18)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RemorrowStyle.surface, in: RoundedRectangle(cornerRadius: 18))
+                    }
+
                     HStack {
                         Text(segment == .receipt ? "Your return windows" : "Upcoming charges")
                             .font(.system(size: 21, weight: .bold, design: .rounded))
@@ -135,6 +149,7 @@ struct ReceiptsSubscriptionsView: View {
                     subtitle: item.merchant,
                     amountLabel: item.purchaseAmount.map { String(format: "Paid $%.2f", $0) },
                     date: item.deadline, dateLabel: item.hasConfirmedReturnDeadline ? "Return deadline" : "No verified return date",
+                    forecastDates: [],
                     warrantyDate: item.warrantyExpiresAt, showPrimaryDate: item.hasConfirmedReturnDeadline,
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
@@ -148,6 +163,7 @@ struct ReceiptsSubscriptionsView: View {
                     name: item.name, subtitle: item.merchant,
                     amountLabel: item.amount.map { String(format: "$%.2f · %@", $0, item.frequency) },
                     date: item.nextCharge, dateLabel: "Next charge",
+                    forecastDates: SubscriptionForecast.dates(from: item.nextCharge, frequency: item.frequency),
                     warrantyDate: nil, showPrimaryDate: true,
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: !item.isActive, inactiveLabel: "Paused",
@@ -363,6 +379,7 @@ private struct FinancialDetailsView: View {
     let amountLabel: String?
     let date: Date
     let dateLabel: String
+    let forecastDates: [Date]
     let warrantyDate: Date?
     let showPrimaryDate: Bool
     let source: String?
@@ -412,6 +429,25 @@ private struct FinancialDetailsView: View {
                                 SectionEyebrow(title: "WARRANTY COVERAGE ENDS")
                                 Text(warrantyDate.formatted(date: .complete, time: .omitted))
                                     .font(.headline)
+                            }
+                        }
+                    }
+                    if forecastDates.count > 1 {
+                        RemorrowCard {
+                            VStack(alignment: .leading, spacing: 11) {
+                                SectionEyebrow(title: "EXPECTED FUTURE CHARGES")
+                                ForEach(Array(forecastDates.enumerated()), id: \.offset) { index, date in
+                                    HStack {
+                                        Text(index == 0 ? "Verified next charge" : "Projected · " + String(index))
+                                            .font(.caption.weight(index == 0 ? .semibold : .regular))
+                                        Spacer()
+                                        Text(date.formatted(date: .abbreviated, time: .omitted))
+                                            .font(.caption)
+                                    }
+                                }
+                                Text("Forecast only. Verify new charge dates with the provider.")
+                                    .font(.caption2)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
                             }
                         }
                     }

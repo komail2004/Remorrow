@@ -14,6 +14,10 @@ struct FinancialDocumentSuggestion {
     var date: Date?
     var dateEvidence: String?
     var amount: Double?
+    var purchaseDate: Date?
+    var warrantyExpiry: Date?
+    var warrantyEvidence: String?
+    var receiptNumber: String?
     var sourceText: String
 }
 
@@ -68,11 +72,56 @@ enum FinancialDocumentParser {
             !$0.localizedCaseInsensitiveContains("return") &&
             !$0.localizedCaseInsensitiveContains("renew")
         })
+        let purchaseDate: Date? = kind == .receipt
+            ? labeledDate(in: lines, labels: ["purchased on", "purchase date", "order date", "date of purchase"])
+            : nil
+        let warrantyLine = kind == .receipt
+            ? labeledDateWithEvidence(in: lines, labels: [
+                "warranty expires", "warranty expiration", "warranty until",
+                "warranty ends", "covered until", "coverage expires", "warranty valid until"
+            ]) : nil
+        let receiptNumber = kind == .receipt
+            ? captureFirst(raw, pattern: #"(?im)\b(?:receipt|order|invoice)\s*(?:no\.?|number|#|id)\s*[:#-]?\s*([A-Z0-9-]{4,30})\b"#)
+            : nil
         let name = kind == .subscription
             ? (merchant.isEmpty ? "Subscription" : merchant + " subscription")
             : (candidateName ?? "Purchase")
         return FinancialDocumentSuggestion(name: name, merchant: merchant,
                                            date: detectedDate, dateEvidence: evidence,
-                                           amount: amount, sourceText: raw)
+                                           amount: amount,
+                                           purchaseDate: purchaseDate,
+                                           warrantyExpiry: warrantyLine?.0,
+                                           warrantyEvidence: warrantyLine?.1,
+                                           receiptNumber: receiptNumber,
+                                           sourceText: raw)
     }
+    private static func labeledDate(in lines: [String], labels: [String]) -> Date? {
+        labeledDateWithEvidence(in: lines, labels: labels)?.0
+    }
+
+    private static func labeledDateWithEvidence(in lines: [String], labels: [String]) -> (Date, String)? {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue) else {
+            return nil
+        }
+        for (i, line) in lines.enumerated() {
+            guard labels.contains(where: { line.localizedCaseInsensitiveContains($0) }) else { continue }
+            let candidate = line + " " + (i + 1 < lines.count ? lines[i + 1] : "")
+            let range = NSRange(candidate.startIndex..<candidate.endIndex, in: candidate)
+            for result in detector.matches(in: candidate, options: [], range: range) {
+                guard let date = result.date,
+                      let matchRange = Range(result.range, in: candidate),
+                      String(candidate[matchRange]).range(of: #"\d"#, options: .regularExpression) != nil else { continue }
+                return (date, candidate)
+            }
+        }
+        return nil
+    }
+
+    private static func captureFirst(_ input: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let result = regex.firstMatch(in: input, range: NSRange(input.startIndex..<input.endIndex, in: input)),
+              let valueRange = Range(result.range(at: 1), in: input) else { return nil }
+        return String(input[valueRange])
+    }
+
 }

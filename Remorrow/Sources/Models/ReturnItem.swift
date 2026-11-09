@@ -11,6 +11,9 @@ final class ReturnItem {
     var createdAt: Date
     var isReturned: Bool
     var purchaseAmount: Double? = nil
+    var purchaseDate: Date? = nil
+    var warrantyExpiresAt: Date? = nil
+    var receiptNumber: String? = nil
     var sourceText: String? = nil
     var attachmentName: String? = nil
 

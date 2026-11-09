@@ -1043,10 +1043,19 @@ struct ContentView: View {
 
     @MainActor
     private func save(title: String, date: Date, kind: ProposedActionKind) async throws {
-        let externalID = try await scheduler.save(title: title, date: date, kind: kind)
+        // Keep the captured image durable before writing an external EventKit
+        // item, and undo the attachment on any failed system save.
+        let attachmentName = try pendingImageData.map { try CaptureMediaStore.save($0) }
+        let externalID: String
+        do {
+            externalID = try await scheduler.save(title: title, date: date, kind: kind)
+        } catch {
+            CaptureMediaStore.remove(named: attachmentName)
+            throw error
+        }
         let item = SavedAction(title: title, dueAt: date, kind: kind.rawValue, externalID: externalID)
         item.sourceText = draft
-        if let pendingImageData { item.attachmentName = try? CaptureMediaStore.save(pendingImageData) }
+        item.attachmentName = attachmentName
         modelContext.insert(item)
         do { try modelContext.save() }
         catch {

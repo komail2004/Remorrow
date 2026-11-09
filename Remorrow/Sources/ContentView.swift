@@ -146,12 +146,19 @@ struct ContentView: View {
                         ? "Suggestion " + String(reviewedCount + 1) + " of " + String(totalCandidates)
                         : "",
                     matchedPlan: matchingPlan(for: candidate),
-                    onUpdate: { title, date, kind in
-                        guard let match = matchingPlan(for: candidate) else { throw ScheduleFailure.itemNotFound }
+                    existingPlans: saved.map {
+                        SavedPlanRecord(id: $0.id, title: $0.title,
+                                        dueAt: $0.dueAt, kind: $0.kind)
+                    },
+                    onUpdate: { id, title, date, kind in
+                        guard let match = saved.first(where: { $0.id == id }) else {
+                            throw ScheduleFailure.itemNotFound
+                        }
                         try await updateSaved(match, title: title, date: date, kind: kind)
                     },
-                    onConfirm: { title, date, kind in
-                        try await save(title: title, date: date, kind: kind)
+                    onConfirm: { title, date, kind, allowConflict in
+                        try await save(title: title, date: date, kind: kind,
+                                       allowConflict: allowConflict)
                     },
                     onSkip: { skipCurrentCandidate() }
                 )
@@ -1042,7 +1049,19 @@ struct ContentView: View {
     }
 
     @MainActor
-    private func save(title: String, date: Date, kind: ProposedActionKind) async throws {
+    private func save(title: String, date: Date, kind: ProposedActionKind,
+                      allowConflict: Bool) async throws {
+        // Prevent bypassing the explicit UI decision if the review sheet
+        // has stale state or a second suggestion was saved in this session.
+        let existing = saved.map {
+            SavedPlanRecord(id: $0.id, title: $0.title,
+                            dueAt: $0.dueAt, kind: $0.kind)
+        }
+        if !allowConflict &&
+           !PlanConflictDetector.find(title: title, dueAt: date,
+                                      kind: kind.rawValue, among: existing).isEmpty {
+            throw ScheduleFailure.conflictReviewRequired
+        }
         // Keep the captured image durable before writing an external EventKit
         // item, and undo the attachment on any failed system save.
         let attachmentName = try pendingImageData.map { try CaptureMediaStore.save($0) }

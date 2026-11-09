@@ -7,6 +7,7 @@ enum ScheduleFailure: LocalizedError {
     case invalidKind
     case itemNotFound
     case missingIdentifier
+    case conflictReviewRequired
 
     var errorDescription: String? {
         switch self {
@@ -15,6 +16,7 @@ enum ScheduleFailure: LocalizedError {
         case .invalidKind: "This type can't be saved yet."
         case .itemNotFound: "The original Apple item could not be found. Review before creating a replacement."
         case .missingIdentifier: "Calendar did not return an identifier for the event. Check Calendar before retrying."
+        case .conflictReviewRequired: "A similar plan or time conflict was found. Review it before saving another copy."
         }
     }
 }

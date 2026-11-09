@@ -6,26 +6,30 @@ struct ReviewView: View {
     let progressLabel: String
     let onSkip: () -> Void
     let matchedPlan: SavedAction?
-    let onUpdate: (@MainActor (String, Date, ProposedActionKind) async throws -> Void)?
-    let onConfirm: @MainActor (String, Date, ProposedActionKind) async throws -> Void
+    let existingPlans: [SavedPlanRecord]
+    let onUpdate: (@MainActor (UUID, String, Date, ProposedActionKind) async throws -> Void)?
+    let onConfirm: @MainActor (String, Date, ProposedActionKind, Bool) async throws -> Void
 
     @State private var title: String
     @State private var dueDate: Date
     @State private var kind: ProposedActionKind
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var showConflictConfirmation = false
 
     init(
         proposal: ActionProposal,
         progressLabel: String = "",
         matchedPlan: SavedAction? = nil,
-        onUpdate: (@MainActor (String, Date, ProposedActionKind) async throws -> Void)? = nil,
-        onConfirm: @escaping @MainActor (String, Date, ProposedActionKind) async throws -> Void,
+        existingPlans: [SavedPlanRecord] = [],
+        onUpdate: (@MainActor (UUID, String, Date, ProposedActionKind) async throws -> Void)? = nil,
+        onConfirm: @escaping @MainActor (String, Date, ProposedActionKind, Bool) async throws -> Void,
         onSkip: @escaping () -> Void = {}
     ) {
         self.proposal = proposal
         self.progressLabel = progressLabel
         self.matchedPlan = matchedPlan
+        self.existingPlans = existingPlans
         self.onUpdate = onUpdate
         self.onSkip = onSkip
         self.onConfirm = onConfirm
@@ -139,17 +143,24 @@ struct ReviewView: View {
                         }
                     }
 
-                    if let matchedPlan, let onUpdate {
+                    if let target = updateTarget, let onUpdate {
                         RemorrowCard {
-                            VStack(alignment: .leading, spacing: 9) {
-                                Label("POSSIBLE RESCHEDULE", systemImage: "calendar.badge.clock")
+                            VStack(alignment: .leading, spacing: 11) {
+                                Label(samePlanConflict?.reason == .likelyDuplicate
+                                      ? "ALREADY SAVED THIS PLAN"
+                                      : "POSSIBLY THE SAME PLAN",
+                                      systemImage: "square.on.square")
                                     .font(.caption.weight(.bold))
                                     .foregroundStyle(RemorrowStyle.violet)
-                                Text(matchedPlan.title).font(.headline)
-                                Text("Previously: " + matchedPlan.dueAt.formatted(date: .abbreviated, time: .shortened))
+                                Text(target.title)
+                                    .font(.headline)
+                                Text("Already scheduled: " +
+                                     target.dueAt.formatted(date: .abbreviated, time: .shortened))
                                     .font(.subheadline)
                                     .foregroundStyle(RemorrowStyle.secondaryText)
-                                Text("Does this message update that plan? Choose update or keep both.")
+                                Text(samePlanConflict?.reason == .samePlanDifferentTime
+                                     ? "This looks like the same activity with a different time. Is it a reschedule?"
+                                     : "This might already be on your calendar. You can update it, skip it, or deliberately keep both.")
                                     .font(.caption)
                                     .foregroundStyle(RemorrowStyle.secondaryText)
                                 Button {
@@ -158,7 +169,12 @@ struct ReviewView: View {
                                     Task {
                                         defer { isSaving = false }
                                         do {
-                                            try await onUpdate(title.trimmingCharacters(in: .whitespacesAndNewlines), dueDate, kind)
+                                            try await onUpdate(
+                                                target.id,
+                                                title.trimmingCharacters(in: .whitespacesAndNewlines),
+                                                dueDate,
+                                                kind
+                                            )
                                         } catch {
                                             errorMessage = error.localizedDescription
                                         }
@@ -170,23 +186,59 @@ struct ReviewView: View {
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .tint(RemorrowStyle.violet)
-                                .disabled(isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                          kind.rawValue != matchedPlan.kind)
+                                .disabled(isSaving ||
+                                          title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                          kind.rawValue != target.kind)
                             }
                         }
                     }
 
-                    RemorrowPrimaryButton(title: matchedPlan == nil ? "Confirm & save" : "Save as new plan",
-                                          systemImage: "checkmark", isBusy: isSaving) {
-                        guard !isSaving else { return }
-                        isSaving = true
-                        Task {
-                            defer { isSaving = false }
-                            do {
-                                try await onConfirm(title.trimmingCharacters(in: .whitespacesAndNewlines), dueDate, kind)
-                            } catch {
-                                errorMessage = error.localizedDescription
+                    if !conflicts.isEmpty {
+                        RemorrowCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Label("CHECK BEFORE ADDING ANOTHER",
+                                      systemImage: "calendar.badge.exclamationmark")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.orange)
+                                if let duplicate = samePlanConflict {
+                                    Text(duplicate.reason == .likelyDuplicate
+                                         ? "A likely duplicate is already saved."
+                                         : "A very similar plan is saved for another time.")
+                                        .font(.subheadline.weight(.semibold))
+                                }
+                                let overlaps = conflicts.filter { $0.reason == .overlappingEvent }
+                                ForEach(overlaps.prefix(3)) { item in
+                                    HStack(alignment: .top, spacing: 9) {
+                                        Image(systemName: "clock")
+                                            .foregroundStyle(.orange)
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(item.record.title).font(.subheadline.weight(.semibold))
+                                            Text("Overlaps · " + item.record.dueAt.formatted(
+                                                date: .abbreviated, time: .shortened))
+                                                .font(.caption)
+                                                .foregroundStyle(RemorrowStyle.secondaryText)
+                                        }
+                                    }
+                                }
+                                Text("A time conflict is a warning, not a restriction. You can keep genuinely separate plans.")
+                                    .font(.caption)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
                             }
+                        }
+                    }
+
+                    RemorrowPrimaryButton(
+                        title: conflicts.isEmpty
+                            ? (updateTarget == nil ? "Confirm & save" : "Save as another plan")
+                            : "Review before saving another",
+                        systemImage: conflicts.isEmpty ? "checkmark" : "exclamationmark.circle",
+                        isBusy: isSaving
+                    ) {
+                        guard !isSaving else { return }
+                        if conflicts.isEmpty {
+                            saveNew(allowConflict: false)
+                        } else {
+                            showConflictConfirmation = true
                         }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -214,6 +266,20 @@ struct ReviewView: View {
                         .disabled(isSaving)
                 }
             }
+            .confirmationDialog(
+                samePlanConflict == nil ? "Save overlapping plan?" : "Keep a separate copy?",
+                isPresented: $showConflictConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Save separate plan anyway") {
+                    saveNew(allowConflict: true)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(samePlanConflict == nil
+                     ? "Another event is already scheduled at this time. Save both only if they are genuinely separate plans."
+                     : "This looks like a plan you have already saved. Updating the original or skipping this suggestion may be better.")
+            }
             .alert("Couldn't save", isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
@@ -221,6 +287,49 @@ struct ReviewView: View {
                 Button("OK", role: .cancel) { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
+            }
+        }
+    }
+    private var conflicts: [PlanConflict] {
+        PlanConflictDetector.find(
+            title: title,
+            dueAt: dueDate,
+            kind: kind.rawValue,
+            among: existingPlans
+        )
+    }
+
+    private var samePlanConflict: PlanConflict? {
+        conflicts.first(where: { $0.isSamePlan })
+    }
+
+    private var updateTarget: SavedPlanRecord? {
+        if let duplicate = samePlanConflict { return duplicate.record }
+        // A true reschedule may change the day, so preserve the original
+        // reschedule detector as a secondary, conservative suggestion.
+        if let matchedPlan,
+           kind.rawValue == matchedPlan.kind,
+           PlanMatcher.similar(title, matchedPlan.title) {
+            return SavedPlanRecord(id: matchedPlan.id, title: matchedPlan.title,
+                                   dueAt: matchedPlan.dueAt, kind: matchedPlan.kind)
+        }
+        return nil
+    }
+
+    private func saveNew(allowConflict: Bool) {
+        guard !isSaving else { return }
+        isSaving = true
+        Task {
+            defer { isSaving = false }
+            do {
+                try await onConfirm(
+                    title.trimmingCharacters(in: .whitespacesAndNewlines),
+                    dueDate,
+                    kind,
+                    allowConflict
+                )
+            } catch {
+                errorMessage = error.localizedDescription
             }
         }
     }
@@ -236,6 +345,6 @@ struct ReviewView: View {
             uncertaintyFlags: ["confirmDate"],
             origin: .localRules
         ),
-        onConfirm: { _, _, _ in }
+        onConfirm: { _, _, _, _ in }
     )
 }

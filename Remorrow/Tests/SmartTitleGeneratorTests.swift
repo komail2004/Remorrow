@@ -18,4 +18,22 @@ final class SmartTitleGeneratorTests: XCTestCase {
     func testWhitespaceDoesNotProduceEmptyTitle() {
         XCTAssertEqual(SmartTitleGenerator.title(from: "  "), "Review this reminder")
     }
+
+    func testThirdPersonDinnerIsAConciseEventTitle() {
+        XCTAssertEqual(
+            SmartTitleGenerator.title(from: "Rubi will have dinner with me"),
+            "Dinner with Rubi"
+        )
+    }
+
+    func testGreetingDoesNotBecomeActionTitle() {
+        let result = SmartTitleGenerator.title(from:
+            "Hi, how are you. Let's dine at 10am on Saturday")
+        XCTAssertEqual(result, "Have dinner")
+    }
+
+    func testDifferentGuestRemainsDifferent() {
+        XCTAssertEqual(SmartTitleGenerator.title(from: "Alex will have dinner with me"),
+                       "Dinner with Alex")
+    }
 }

@@ -267,7 +267,8 @@ struct ReceiptsSubscriptionsView: View {
                     let scheduled = try await returnAlerts.schedule(item)
                     if warrantyDate != nil { _ = try? await returnAlerts.scheduleWarranty(item) }
                     message = scheduled ? "Receipt saved and return alert scheduled."
-                                        : "Receipt saved. No notification was scheduled."
+                                        : (warrantyDate != nil ? "Receipt and warranty saved. Check notification permissions for alerts."
+                                                               : "Receipt saved. No notification was scheduled.")
                 } catch {
                     message = "Receipt saved, but notification scheduling failed."
                 }

@@ -984,6 +984,14 @@ struct ContentView: View {
             original.title = oldTitle
             original.dueAt = oldDate
             original.sourceText = oldSource
+            // Best-effort compensating write. If this fails too, surface
+            // the issue rather than claiming both copies are synchronized.
+            do {
+                try await scheduler.update(title: oldTitle, date: oldDate,
+                                           kind: original.kind, externalID: original.externalID)
+            } catch {
+                errorMessage = "The Apple item changed but local history couldn't update. Check both records."
+            }
             throw error
         }
         // Keep the original external identifier and attachment; never create a duplicate.
@@ -1000,6 +1008,8 @@ struct ContentView: View {
         modelContext.insert(item)
         do { try modelContext.save() }
         catch {
+            modelContext.rollback()
+            CaptureMediaStore.remove(named: item.attachmentName)
             errorMessage = "Saved to Apple \(kind == .calendarEvent ? "Calendar" : "Reminders"), but the local history update failed. Check the Apple app before retrying."
             reviewPresented = false
             draft = ""

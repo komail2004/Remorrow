@@ -205,7 +205,7 @@ struct FinancialCaptureView: View {
                     }
 
                     RemorrowPrimaryButton(
-                        title: kind == .receipt ? "Save receipt & return" : "Save subscription",
+                        title: kind == .receipt ? (trackReturn ? "Save receipt & return" : "Save receipt") : "Save subscription",
                         systemImage: "checkmark",
                         isBusy: isSaving
                     ) {

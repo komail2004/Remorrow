@@ -43,7 +43,13 @@ struct ReturnNotificationScheduler {
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
         guard let expires = item.warrantyExpiresAt, expires > Date() else { return false }
         let status = await center.notificationSettings()
-        guard status.authorizationStatus == .authorized || status.authorizationStatus == .provisional else { return false }
+        let allowed: Bool
+        switch status.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: allowed = true
+        case .notDetermined: allowed = try await center.requestAuthorization(options: [.alert, .sound])
+        default: allowed = false
+        }
+        guard allowed else { return false }
         let prior = Calendar.current.date(byAdding: .day, value: -14, to: expires) ?? expires
         let fire = prior > Date() ? prior : expires.addingTimeInterval(-86400)
         guard fire > Date() else { return false }

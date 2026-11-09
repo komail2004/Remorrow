@@ -121,7 +121,9 @@ struct MemorySearchView: View {
 
     private var matchedPlans: [SavedAction] {
         plans.filter {
-            SearchRanking.score(query, fields: [$0.title, $0.sourceText ?? "", $0.kind]) > 0
+            SearchRanking.score(query, fields: [$0.title, $0.sourceText ?? "", $0.kind,
+                                                "reminder reminders calendar event events plan plans"]) > 0
+            && SearchRanking.matchesDate(query, date: $0.dueAt)
         }.sorted {
             SearchRanking.score(query, fields: [$0.title, $0.sourceText ?? ""]) >
             SearchRanking.score(query, fields: [$1.title, $1.sourceText ?? ""])
@@ -130,12 +132,17 @@ struct MemorySearchView: View {
     private var matchedReceipts: [ReturnItem] {
         receipts.filter {
             SearchRanking.score(query, fields: [$0.itemName, $0.merchant,
-                                               $0.receiptNumber ?? "", $0.sourceText ?? ""]) > 0
+                                               $0.receiptNumber ?? "", $0.sourceText ?? "",
+                                               "receipt receipts purchase order invoice"]) > 0
+            && SearchRanking.matchesDate(query,
+                 date: $0.hasConfirmedReturnDeadline ? $0.deadline : ($0.warrantyExpiresAt ?? $0.createdAt))
         }
     }
     private var matchedSubscriptions: [SubscriptionItem] {
         subscriptions.filter {
-            SearchRanking.score(query, fields: [$0.name, $0.merchant, $0.sourceText ?? ""]) > 0
+            SearchRanking.score(query, fields: [$0.name, $0.merchant, $0.sourceText ?? "",
+                                                "subscription subscriptions renew renewal recurring billing"]) > 0
+            && SearchRanking.matchesDate(query, date: $0.nextCharge)
         }
     }
     private var resultCount: Int {
@@ -176,8 +183,17 @@ struct MemorySearchView: View {
 }
 
 enum SearchRanking {
+    private static let ignored: Set<String> = [
+        "where", "is", "are", "my", "me", "show", "find", "what",
+        "which", "can", "you", "please", "the", "a", "an",
+        "with", "for", "from", "that", "this", "month", "week",
+        "on", "in", "of", "do", "i", "have", "saved", "all", "and"
+    ]
+
     static func score(_ query: String, fields: [String]) -> Int {
-        let words = query.lowercased().split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        let words = query.lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty && !ignored.contains($0) }
         if words.isEmpty { return 1 }
         let lower = fields.map { $0.lowercased() }
         guard words.allSatisfy({ word in lower.contains(where: { $0.contains(word) }) }) else { return 0 }
@@ -186,6 +202,26 @@ enum SearchRanking {
                 rank + (entry.element.contains(word) ? max(1, 8 - entry.offset * 2) : 0)
             }
         }
+    }
+
+    static func matchesDate(_ query: String, date: Date, now: Date = .now,
+                            calendar: Calendar = .current) -> Bool {
+        let q = query.lowercased()
+        if q.contains("this month") {
+            return calendar.isDate(date, equalTo: now, toGranularity: .month)
+        }
+        if q.contains("next month"),
+           let shifted = calendar.date(byAdding: .month, value: 1, to: now) {
+            return calendar.isDate(date, equalTo: shifted, toGranularity: .month)
+        }
+        if q.contains("this week") {
+            return calendar.isDate(date, equalTo: now, toGranularity: .weekOfYear)
+        }
+        if q.contains("next week"),
+           let shifted = calendar.date(byAdding: .weekOfYear, value: 1, to: now) {
+            return calendar.isDate(date, equalTo: shifted, toGranularity: .weekOfYear)
+        }
+        return true
     }
 }
 

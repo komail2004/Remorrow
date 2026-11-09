@@ -16,18 +16,9 @@ struct RememberWithRemorrowIntent: AppIntent {
         guard ShortcutCapturePolicy.isValid(selected) else {
             return .result(dialog: "Provide some text, up to 20,000 characters.")
         }
-        guard let base = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: SharedInbox.groupID) else {
-            throw SharedInboxError.unavailable
-        }
-        let folder = base.appendingPathComponent("Inbox", isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let id = UUID().uuidString
-        let payload = SharedInbox.Payload(
-            id: id, type: "text", text: selected, imageFile: nil, createdAt: .now
-        )
-        try JSONEncoder().encode(payload)
-            .write(to: folder.appendingPathComponent(id + ".json"), options: .atomic)
+        // App Intent runs in Remorrow's app context. The app-private inbox
+        // works without App Group provisioning and remains fully on-device.
+        try SharedInbox.stageShortcutText(selected)
         return .result(dialog: "Saved privately. Open Remorrow to review the reminder.")
     }
 }

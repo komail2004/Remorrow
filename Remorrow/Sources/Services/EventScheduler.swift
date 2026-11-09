@@ -5,6 +5,7 @@ enum ScheduleFailure: LocalizedError {
     case accessDenied
     case noCalendar
     case invalidKind
+    case itemNotFound
 
     var errorDescription: String? {
         switch self {
@@ -44,6 +45,29 @@ final class EventScheduler {
             try store.save(reminder, commit: true)
             return reminder.calendarItemIdentifier
         case .shoppingReturn:
+            throw ScheduleFailure.invalidKind
+        }
+    }
+
+    func update(title: String, date: Date, kind: String, externalID: String) async throws {
+        if kind == ProposedActionKind.calendarEvent.rawValue {
+            guard try await store.requestFullAccessToEvents() else { throw ScheduleFailure.accessDenied }
+            guard let event = store.event(withIdentifier: externalID) else { throw ScheduleFailure.itemNotFound }
+            let duration = max(60, event.endDate.timeIntervalSince(event.startDate))
+            event.title = title
+            event.startDate = date
+            event.endDate = date.addingTimeInterval(duration)
+            try store.save(event, span: .thisEvent, commit: true)
+        } else if kind == ProposedActionKind.reminder.rawValue {
+            guard try await store.requestFullAccessToReminders() else { throw ScheduleFailure.accessDenied }
+            guard let reminder = store.calendarItem(withIdentifier: externalID) as? EKReminder else {
+                throw ScheduleFailure.itemNotFound
+            }
+            reminder.title = title
+            reminder.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            reminder.alarms = [EKAlarm(absoluteDate: date)]
+            try store.save(reminder, commit: true)
+        } else {
             throw ScheduleFailure.invalidKind
         }
     }

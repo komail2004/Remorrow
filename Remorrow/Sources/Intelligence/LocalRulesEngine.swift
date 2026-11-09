@@ -172,16 +172,31 @@ struct LocalRulesEngine: ExtractionEngine {
         else { return results }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         for match in detector.matches(in: text, options: [], range: range) {
-            guard let date = match.date, let span = Range(match.range, in: text) else { continue }
+            guard let detectedDate = match.date,
+                  let span = Range(match.range, in: text) else { continue }
             let evidence = String(text[span])
             guard evidence.matches(#"\d"#) else { continue }
             var flags: [String] = []
-            if !evidence.matches(#"(?i)\b\d{4}\b"#) { flags.append("confirmYear") }
-            if !evidence.matches(#"(?i)\b(?:am|pm)\b"#) &&
-               !text.matches(#"(?i)\b(?:at|by|around)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)\b"#) {
-                flags.append("confirmTime")
+            if !evidence.matches(#"(?i)\b\d{4}\b"#) {
+                flags.append("confirmYear")
             }
-            results.append(DateCandidate(date: date, evidence: evidence, flags: flags))
+            // NSDataDetector can recognize the date but overlook a nearby
+            // explicit time. A stated "8 PM" must not silently become noon.
+            let specifiedTime = extractTime(from: text)
+            let proposedDate: Date
+            if let hour = specifiedTime.hour {
+                proposedDate = calendar.date(bySettingHour: hour,
+                                             minute: specifiedTime.minute ?? 0,
+                                             second: 0,
+                                             of: detectedDate) ?? detectedDate
+            } else {
+                proposedDate = detectedDate
+                if specifiedTime.ambiguous || !evidence.matches(#"(?i)\b(?:am|pm)\b"#) {
+                    flags.append("confirmTime")
+                }
+            }
+            results.append(DateCandidate(date: proposedDate,
+                                         evidence: evidence, flags: flags))
         }
         return results
     }

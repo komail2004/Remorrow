@@ -41,4 +41,24 @@ final class LocalRulesEngineTests: XCTestCase {
         let proposals = try await LocalRulesEngine().extract(from: input)
         XCTAssertEqual(proposals.first?.kind, .reminder)
     }
+
+    func testExplicitEightPMWinsOverDefaultAbsoluteDateTime() async throws {
+        let input = ExtractionInput(text: "Dinner with Rubi on November 20, 2026 at 8 PM",
+                                    capturedAt: .now, localeIdentifier: "en_US",
+                                    timeZoneIdentifier: "America/New_York")
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let detected = try XCTUnwrap(proposals.first?.proposedDate)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        XCTAssertEqual(calendar.component(.hour, from: detected), 20)
+        XCTAssertEqual(calendar.component(.day, from: detected), 20)
+    }
+
+    func testMissingTimeRemainsUncertain() async throws {
+        let input = ExtractionInput(text: "Dinner with Rubi on November 20, 2026",
+                                    capturedAt: .now, localeIdentifier: "en_US",
+                                    timeZoneIdentifier: "America/New_York")
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        XCTAssertTrue(proposals.first?.uncertaintyFlags.contains("confirmTime") == true)
+    }
 }

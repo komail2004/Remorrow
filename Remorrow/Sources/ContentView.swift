@@ -33,6 +33,7 @@ struct ContentView: View {
     @State private var saveMessage: String?
     @State private var reviewPresented = false
     @State private var selection = 0
+    @State private var showingAllAgenda = false
     @State private var importingShare = false
 
     private let engine = SmartExtractionPipeline()
@@ -59,6 +60,34 @@ struct ContentView: View {
             case .shoppingReturn(let item): item.deadline
             case .warranty(let item): item.warrantyExpiresAt ?? item.createdAt
             case .subscription(let item): item.nextCharge
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .plan(let item): item.title
+            case .shoppingReturn(let item): "Return " + item.itemName
+            case .warranty(let item): "Warranty · " + item.itemName
+            case .subscription(let item): item.name
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .plan(let item): item.kind == "calendarEvent" ? "calendar" : "checkmark.circle"
+            case .shoppingReturn: "shippingbox"
+            case .warranty: "checkmark.shield"
+            case .subscription: "arrow.clockwise"
+            }
+        }
+
+        var context: String {
+            let date = dueAt.formatted(date: .abbreviated, time: .shortened)
+            switch self {
+            case .plan, .shoppingReturn:
+                return dueAt < .now ? "Overdue · " + date : date
+            case .warranty: return "Warranty ends · " + dueAt.formatted(date: .abbreviated, time: .omitted)
+            case .subscription: return "Next charge · " + date
             }
         }
     }
@@ -227,7 +256,6 @@ struct ContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 25) {
                     header
-                    DailyBriefingCard(briefing: briefing)
                     hero
                     captureShortcuts
                     captureCard
@@ -361,146 +389,178 @@ struct ContentView: View {
         )
     }
 
+    /// One glanceable dashboard replaces the previous two repeating cards.
+    /// Only two actionable rows appear by default; everything else expands
+    /// in place without hiding receipt/subscription destinations.
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                        .font(.subheadline)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(Date.now.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
+                            .uppercased())
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.5)
                         .foregroundStyle(RemorrowStyle.secondaryText)
                     Text("Your day")
-                        .font(.system(size: 35, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .tracking(-0.7)
+                        .foregroundStyle(RemorrowStyle.primaryText)
                 }
-                Spacer()
-                Text(String(agenda.count) + " ahead")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(RemorrowStyle.violet)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .background(RemorrowStyle.violet.opacity(0.08), in: Capsule())
-            }
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    SectionEyebrow(title: "UP NEXT")
-                    Spacer()
-                    Button("All plans") { selection = 1 }
+                Spacer(minLength: 4)
+                Button {
+                    selection = 1
+                } label: {
+                    Label("My plans", systemImage: "arrow.up.right")
                         .font(.caption.weight(.semibold))
+                        .foregroundStyle(RemorrowStyle.violet)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 9)
+                        .background(RemorrowStyle.blueTint.opacity(0.75),
+                                    in: Capsule())
                 }
-                if agenda.isEmpty {
-                    Text("Nothing pressing.")
-                        .font(.system(.title3, design: .serif, weight: .semibold))
-                    Text("Capture a message or photo below. Your next important date will appear here.")
-                        .font(.subheadline)
-                        .foregroundStyle(RemorrowStyle.secondaryText)
-                } else {
-                    ForEach(Array(agenda.prefix(5))) { entry in
-                        switch entry {
-                        case .plan(let item):
-                            NavigationLink {
-                                SavedActionDetailsView(action: item) {
-                                    await deleteSaved(item)
-                                }
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: item.kind == "calendarEvent" ? "calendar" : "checkmark.circle")
-                                        .foregroundStyle(RemorrowStyle.violet)
-                                        .frame(width: 28)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(item.title)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(RemorrowStyle.primaryText)
-                                            .lineLimit(2)
-                                        Text((item.dueAt < Date() ? "Overdue · " : "")
-                                             + item.dueAt.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.caption)
-                                            .foregroundStyle(item.dueAt < Date() ? .orange : RemorrowStyle.secondaryText)
-                                    }
-                                    Spacer(minLength: 0)
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundStyle(RemorrowStyle.secondaryText)
-                                }
-                            }
-                            .buttonStyle(.plain)
+                .buttonStyle(.plain)
+            }
 
-                        case .shoppingReturn(let item):
-                            Button {
-                                selection = 2
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "shippingbox")
-                                        .foregroundStyle(RemorrowStyle.violet)
-                                        .frame(width: 28)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text("Return " + item.itemName)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(RemorrowStyle.primaryText)
-                                        Text((item.deadline < Date() ? "Overdue · " : "")
-                                             + item.deadline.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.caption)
-                                            .foregroundStyle(RemorrowStyle.secondaryText)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundStyle(RemorrowStyle.secondaryText)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        case .warranty(let item):
-                            Button {
-                                selection = 2
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "checkmark.shield")
-                                        .foregroundStyle(RemorrowStyle.violet)
-                                        .frame(width: 28)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text("Warranty for " + item.itemName)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(RemorrowStyle.primaryText)
-                                        Text("Expires · " + (item.warrantyExpiresAt ?? item.createdAt).formatted(date: .abbreviated, time: .omitted))
-                                            .font(.caption)
-                                            .foregroundStyle(RemorrowStyle.secondaryText)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundStyle(RemorrowStyle.secondaryText)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        case .subscription(let item):
-                            Button {
-                                selection = 2
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: "arrow.clockwise")
-                                        .foregroundStyle(RemorrowStyle.violet)
-                                        .frame(width: 28)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(item.name)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(RemorrowStyle.primaryText)
-                                        Text("Next charge · " + item.nextCharge.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.caption)
-                                            .foregroundStyle(RemorrowStyle.secondaryText)
-                                    }
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption)
-                                        .foregroundStyle(RemorrowStyle.secondaryText)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
+            HStack(spacing: 8) {
+                briefingStat(briefing.overdue.count, label: "overdue", color: .orange)
+                briefingStat(briefing.today.count, label: "today", color: RemorrowStyle.violet)
+                briefingStat(briefing.soon.count, label: "upcoming", color: RemorrowStyle.deepBlue)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("todaySummary")
+
+            Rectangle()
+                .fill(RemorrowStyle.primaryText.opacity(0.07))
+                .frame(height: 1)
+
+            if agenda.isEmpty {
+                HStack(spacing: 11) {
+                    Image(systemName: "checkmark.seal")
+                        .font(.system(size: 20, weight: .light))
+                        .foregroundStyle(RemorrowStyle.violet)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("All clear for now")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Capture a plan whenever you're ready.")
+                            .font(.caption)
+                            .foregroundStyle(RemorrowStyle.secondaryText)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 4)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(showingAllAgenda ? agenda : Array(agenda.prefix(2))) { entry in
+                        agendaDestination(for: entry)
                     }
                 }
+
+                if agenda.count > 2 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showingAllAgenda.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            Text(showingAllAgenda
+                                 ? "Show less"
+                                 : "See " + String(agenda.count - 2) + " more")
+                                .font(.caption.weight(.semibold))
+                            Image(systemName: showingAllAgenda
+                                  ? "chevron.up" : "chevron.down")
+                                .font(.caption2.weight(.semibold))
+                        }
+                        .foregroundStyle(RemorrowStyle.violet)
+                        .frame(maxWidth: .infinity, minHeight: 37)
+                        .background(RemorrowStyle.canvas,
+                                    in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("toggleAgenda")
+                }
             }
-            .padding(19)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RemorrowStyle.surface, in: RoundedRectangle(cornerRadius: 18))
         }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RemorrowStyle.surface,
+                    in: RoundedRectangle(cornerRadius: 23, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 23, style: .continuous)
+                .strokeBorder(RemorrowStyle.primaryText.opacity(0.035), lineWidth: 1)
+        }
+    }
+
+    private func briefingStat(_ count: Int, label: String, color: Color) -> some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(count == 0 ? RemorrowStyle.secondaryText.opacity(0.45) : color)
+                .frame(width: 6, height: 6)
+            Text(String(count))
+                .font(.caption.weight(.bold))
+                .monospacedDigit()
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .foregroundStyle(RemorrowStyle.primaryText)
+        .padding(.horizontal, 9)
+        .frame(maxWidth: .infinity, minHeight: 32)
+        .background(RemorrowStyle.canvas,
+                    in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private func agendaDestination(for entry: AgendaEntry) -> some View {
+        switch entry {
+        case .plan(let item):
+            NavigationLink {
+                SavedActionDetailsView(action: item) {
+                    await deleteSaved(item)
+                }
+            } label: {
+                compactAgendaRow(entry)
+            }
+            .buttonStyle(.plain)
+        case .shoppingReturn, .warranty, .subscription:
+            Button {
+                selection = 2
+            } label: {
+                compactAgendaRow(entry)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func compactAgendaRow(_ entry: AgendaEntry) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: entry.symbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(RemorrowStyle.violet)
+                .frame(width: 34, height: 34)
+                .background(RemorrowStyle.blueTint.opacity(0.7),
+                            in: RoundedRectangle(cornerRadius: 11))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(RemorrowStyle.primaryText)
+                    .lineLimit(2)
+                Text(entry.context)
+                    .font(.caption2)
+                    .foregroundStyle(entry.dueAt < .now
+                                     ? Color.orange : RemorrowStyle.secondaryText)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 2)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(RemorrowStyle.secondaryText.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("agendaItem-" + entry.id)
     }
 
     private var upcomingReturns: [ReturnItem] {

@@ -68,13 +68,13 @@ struct ContentView: View {
 
     private var agenda: [AgendaEntry] {
         let actions = upcoming.map { AgendaEntry.plan($0) }
-        let returns = upcomingReturns.map { AgendaEntry.shoppingReturn($0) }
-        let warranties = returns.filter {
+        let returnEntries = upcomingReturns.map { AgendaEntry.shoppingReturn($0) }
+        let warranties = self.returns.filter {
             ($0.warrantyExpiresAt ?? .distantPast) >= Date().addingTimeInterval(-7 * 24 * 60 * 60)
         }.map { AgendaEntry.warranty($0) }
         let charges = subscriptions.filter { $0.isActive && $0.nextCharge >= Date().addingTimeInterval(-7 * 24 * 60 * 60) }
             .map { AgendaEntry.subscription($0) }
-        return (actions + returns + warranties + charges).sorted { $0.dueAt < $1.dueAt }
+        return (actions + returnEntries + warranties + charges).sorted { $0.dueAt < $1.dueAt }
     }
 
     private var briefing: DailyBriefing {

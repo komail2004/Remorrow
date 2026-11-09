@@ -178,9 +178,14 @@ struct ContentView: View {
                     .font(.system(size: 24, weight: .bold, design: .rounded))
                     .tracking(-0.7)
                 Spacer()
-                Image(systemName: "bell.badge")
-                    .font(.system(size: 19, weight: .medium))
-                    .accessibilityLabel("Upcoming priorities")
+                NavigationLink {
+                    MemorySearchView(onDeletePlan: { await deleteSaved($0) },
+                                     onOpenFinance: { selection = 2 })
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 19, weight: .semibold))
+                }
+                .accessibilityLabel("Search saved memories")
             }
             .foregroundStyle(.white)
 
@@ -594,9 +599,20 @@ struct ContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     SectionEyebrow(title: "YOUR THINGS")
-                    Text("My plans")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .tracking(-1)
+                    HStack {
+                        Text("My plans")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .tracking(-1)
+                        Spacer()
+                        NavigationLink {
+                            MemorySearchView(onDeletePlan: { await deleteSaved($0) },
+                                             onOpenFinance: { selection = 2 })
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                                .font(.title3.weight(.medium))
+                        }
+                        .accessibilityLabel("Search all saved memories")
+                    }
                     if saved.isEmpty {
                         RemorrowCard {
                             VStack(alignment: .leading, spacing: 10) {

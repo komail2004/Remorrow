@@ -29,7 +29,7 @@ struct ContentView: View {
     @State private var selection = 0
     @State private var importingShare = false
 
-    private let engine = LocalRulesEngine()
+    private let engine = SmartExtractionPipeline()
     private let scheduler = EventScheduler()
 
     private enum AgendaEntry: Identifiable {

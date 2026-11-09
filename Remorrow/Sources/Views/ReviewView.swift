@@ -46,6 +46,15 @@ struct ReviewView: View {
                         Text("Edit the title and date before saving to your iPhone.")
                             .font(.subheadline)
                             .foregroundStyle(RemorrowStyle.secondaryText)
+                        if proposal.origin == .appleFoundationModels {
+                            Label("Interpreted with Apple on-device intelligence", systemImage: "apple.intelligence")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(RemorrowStyle.violet)
+                        } else {
+                            Label("Private on-device interpretation", systemImage: "lock.shield")
+                                .font(.caption)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
+                        }
                     }
 
                     RemorrowCard {

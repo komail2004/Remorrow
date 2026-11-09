@@ -102,6 +102,12 @@ struct ReviewView: View {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .foregroundStyle(.orange)
                             VStack(alignment: .leading, spacing: 5) {
+                                if proposal.proposedDate == nil {
+                                    Text("No verified date was found. Choose the real date instead of the placeholder.")
+                                }
+                                if proposal.uncertaintyFlags.contains("confirmResponsibility") {
+                                    Text("Check that this is your responsibility, not somebody else's.")
+                                }
                                 if proposal.uncertaintyFlags.contains("confirmCommitment") {
                                     Text("This sounded tentative. Check whether the plan is actually confirmed.")
                                 }

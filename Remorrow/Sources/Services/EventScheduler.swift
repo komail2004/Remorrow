@@ -6,6 +6,7 @@ enum ScheduleFailure: LocalizedError {
     case noCalendar
     case invalidKind
     case itemNotFound
+    case missingIdentifier
 
     var errorDescription: String? {
         switch self {
@@ -13,6 +14,7 @@ enum ScheduleFailure: LocalizedError {
         case .noCalendar: "No writable calendar or reminders list was found."
         case .invalidKind: "This type can't be saved yet."
         case .itemNotFound: "The original Apple item could not be found. Review before creating a replacement."
+        case .missingIdentifier: "Calendar did not return an identifier for the event. Check Calendar before retrying."
         }
     }
 }
@@ -37,7 +39,11 @@ final class EventScheduler {
                     title: title, kind: "calendarEvent"))]
             }
             try store.save(event, span: .thisEvent)
-            return event.eventIdentifier ?? UUID().uuidString
+            guard let identifier = event.eventIdentifier else {
+                try? store.remove(event, span: .thisEvent, commit: true)
+                throw ScheduleFailure.missingIdentifier
+            }
+            return identifier
         case .reminder:
             guard try await store.requestFullAccessToReminders() else { throw ScheduleFailure.accessDenied }
             let reminder = EKReminder(eventStore: store)

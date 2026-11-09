@@ -9,6 +9,7 @@ struct ContentView: View {
     @Query(sort: \ReturnItem.deadline) private var returns: [ReturnItem]
     @Query(sort: \SubscriptionItem.nextCharge) private var subscriptions: [SubscriptionItem]
     @AppStorage("currentDraft") private var draft = ""
+    @AppStorage("showDetailsInWidgets") private var showDetailsInWidgets = false
     @AppStorage("smartNotificationsEnabled") private var smartAlerts = false
     @AppStorage("dailyBriefingEnabled") private var dailyBriefingEnabled = false
     @AppStorage("dailyBriefingHour") private var dailyBriefingHour = 8
@@ -85,6 +86,12 @@ struct ContentView: View {
         return DailyBriefing.build(items: plans + purchases + charges)
     }
 
+    private var briefingFingerprint: String {
+        (briefing.overdue + briefing.today + briefing.soon)
+            .map { $0.id + String(Int($0.dueAt.timeIntervalSince1970)) + $0.title }
+            .joined(separator: "|")
+    }
+
     var body: some View {
         TabView(selection: $selection) {
             home
@@ -148,6 +155,7 @@ struct ContentView: View {
             Task { await readPhoto(newValue) }
         }
         .task {
+            WidgetSnapshotWriter.publish(briefing: briefing, allowDetails: showDetailsInWidgets)
             if !hasCompletedWelcome {
                 showingWelcome = true
             } else {
@@ -158,6 +166,12 @@ struct ContentView: View {
             if newValue == .active && hasCompletedWelcome {
                 Task { await importSharedContent() }
             }
+        }
+        .onChange(of: briefingFingerprint) { _, _ in
+            WidgetSnapshotWriter.publish(briefing: briefing, allowDetails: showDetailsInWidgets)
+        }
+        .onChange(of: showDetailsInWidgets) { _, _ in
+            WidgetSnapshotWriter.publish(briefing: briefing, allowDetails: showDetailsInWidgets)
         }
         .onChange(of: reviewPresented) { _, presented in
             // A partially saved conversation must not leave the same text
@@ -708,6 +722,12 @@ struct ContentView: View {
                             Label("Mindful notifications", systemImage: "bell.badge")
                                 .font(.headline)
                                 .foregroundStyle(RemorrowStyle.violet)
+                            Toggle("Show next item title in Home Screen widget", isOn: $showDetailsInWidgets)
+                                .tint(RemorrowStyle.violet)
+                            Text("Widgets show counts only by default. Turn this on to allow a saved title to appear on your Home Screen.")
+                                .font(.caption)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
+                            Divider()
                             Toggle("Suggest earlier preparation alerts", isOn: $smartAlerts)
                                 .tint(RemorrowStyle.violet)
                             Text("New reminders and events can receive an extra alert at a suggested time. Existing events are unchanged.")

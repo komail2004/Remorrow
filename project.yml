@@ -22,6 +22,8 @@ targets:
         embed: true
       - target: RemorrowTextAction
         embed: true
+      - target: RemorrowWidget
+        embed: true
     entitlements:
       path: Remorrow/Remorrow.entitlements
     settings:
@@ -72,6 +74,24 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow.TextAction
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: RemorrowTextAction/Info.plist
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_STYLE: Automatic
+  RemorrowWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: RemorrowWidget
+        excludes:
+          - Info.plist
+          - RemorrowWidget.entitlements
+    entitlements:
+      path: RemorrowWidget/RemorrowWidget.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow.Widget
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: RemorrowWidget/Info.plist
         APPLICATION_EXTENSION_API_ONLY: YES
         SKIP_INSTALL: YES
         CODE_SIGN_STYLE: Automatic

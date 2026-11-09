@@ -131,4 +131,14 @@ final class PlanConflictDetectorTests: XCTestCase {
         ]
         XCTAssertTrue(PlanConflictDetector.existingDuplicates(in: items).isEmpty)
     }
+
+    func testCommonNaturalParaphrasesRemainOneDinner() {
+        let saved = plan("Dinner with Rubi")
+        XCTAssertEqual(conflicts("Rubi and I are having dinner", previous: [saved]).first?.reason,
+                       .likelyDuplicate)
+        XCTAssertEqual(conflicts("Rubi is coming over for dinner", previous: [saved]).first?.reason,
+                       .likelyDuplicate)
+        XCTAssertEqual(conflicts("Dinner with Rubi at 8pm", previous: [saved]).first?.reason,
+                       .likelyDuplicate)
+    }
 }

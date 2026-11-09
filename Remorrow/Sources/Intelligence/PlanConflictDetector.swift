@@ -106,7 +106,8 @@ enum PlanConflictDetector {
         "it", "its", "with", "at", "in", "on", "for", "from", "to",
         "of", "by", "and", "or", "will", "would", "should", "could",
         "have", "has", "had", "be", "is", "are", "am", "was", "were",
-        "going", "gonna", "do", "does", "did", "let", "lets", "get", "got",
+        "going", "gonna", "having", "grabbing", "eating", "coming", "over",
+        "together", "do", "does", "did", "let", "lets", "get", "got",
         "need", "needs", "want", "wants", "plan", "plans", "planning",
         "reminder", "remind", "remember", "event", "scheduled",
         "today", "tomorrow", "yesterday", "next", "this", "last",
@@ -147,7 +148,12 @@ enum PlanConflictDetector {
                 default: return word
                 }
             }
-        let all = Set(words.filter { Int($0) == nil && !common.contains($0) })
+        let all = Set(words.filter {
+            Int($0) == nil &&
+            $0.range(of: #"^\d{1,2}(?:am|pm)$"#, options: .regularExpression) == nil &&
+            $0.range(of: #"^\d{1,2}\d{2}(?:am|pm)$"#, options: .regularExpression) == nil &&
+            !common.contains($0)
+        })
         let category = groupings.first { !$0.1.isDisjoint(with: all) }?.0
         let core = all.subtracting(groupings.flatMap { $0.1 })
         return Identity(category: category,

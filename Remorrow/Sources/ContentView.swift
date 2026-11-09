@@ -81,6 +81,14 @@ struct ContentView: View {
         return (actions + returnEntries + warranties + charges).sorted { $0.dueAt < $1.dueAt }
     }
 
+    private var suggestedDuplicateCount: Int {
+        let records = saved.sorted { $0.createdAt < $1.createdAt }.map {
+            SavedPlanRecord(id: $0.id, title: $0.title,
+                            dueAt: $0.dueAt, kind: $0.kind)
+        }
+        return PlanConflictDetector.existingDuplicates(in: records).count
+    }
+
     private var briefing: DailyBriefing {
         let plans = saved.map {
             BriefingEntry(id: "plan-" + $0.id.uuidString, title: $0.title, dueAt: $0.dueAt, kind: $0.kind)
@@ -700,6 +708,39 @@ struct ContentView: View {
                                 .font(.title3.weight(.medium))
                         }
                         .accessibilityLabel("Search all saved memories")
+                    }
+                    if suggestedDuplicateCount > 0 {
+                        NavigationLink {
+                            PossibleDuplicatesView { id in
+                                guard let item = saved.first(where: { $0.id == id }) else {
+                                    return false
+                                }
+                                return await deleteSaved(item)
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "square.on.square")
+                                    .font(.title3)
+                                    .foregroundStyle(RemorrowStyle.violet)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Review possible duplicates")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(RemorrowStyle.primaryText)
+                                    Text(String(suggestedDuplicateCount) +
+                                         " similar saved plan(s) · You choose what to keep")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                            }
+                            .padding(16)
+                            .background(RemorrowStyle.surface, in:
+                                            RoundedRectangle(cornerRadius: 18))
+                        }
+                        .buttonStyle(.plain)
                     }
                     if saved.isEmpty {
                         RemorrowCard {

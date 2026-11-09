@@ -108,4 +108,27 @@ final class PlanConflictDetectorTests: XCTestCase {
         XCTAssertEqual(conflicts("Dinner with Alex", previous: [saved]).first?.reason,
                        .overlappingEvent)
     }
+
+    func testExistingTriplicateProducesTwoSuggestedExtraCopies() {
+        let items = [
+            plan("Dinner with Rubi"),
+            plan("Rubi will have dinner with me"),
+            plan("Dinner with Ruby", minutes: -480)
+        ]
+        let pairs = PlanConflictDetector.existingDuplicates(in: items)
+        XCTAssertEqual(pairs.count, 2)
+        XCTAssertEqual(pairs[0].original.id, items[0].id)
+        XCTAssertEqual(pairs[0].possibleExtra.id, items[1].id)
+        XCTAssertEqual(pairs[1].original.id, items[0].id)
+        XCTAssertEqual(pairs[1].reason, .samePlanDifferentTime)
+    }
+
+    func testExistingSeparateEventsAtSameTimeNotMisnamedDuplicates() {
+        let items = [
+            plan("Dinner with Rubi"),
+            plan("Dinner with Alex"),
+            plan("Dentist appointment")
+        ]
+        XCTAssertTrue(PlanConflictDetector.existingDuplicates(in: items).isEmpty)
+    }
 }

@@ -23,7 +23,37 @@ struct PlanConflict: Identifiable {
     var isSamePlan: Bool { reason != .overlappingEvent }
 }
 
+struct PlanDuplicatePair: Identifiable {
+    let original: SavedPlanRecord
+    let possibleExtra: SavedPlanRecord
+    let reason: PlanConflict.Reason
+
+    var id: UUID { possibleExtra.id }
+}
+
 enum PlanConflictDetector {
+    /// Records must be supplied in their original creation order. Each extra
+    /// gets one suggested original, so three duplicates result in two review
+    /// rows instead of a noisy all-pairs comparison.
+    static func existingDuplicates(in creationOrder: [SavedPlanRecord],
+                                   calendar: Calendar = .current) -> [PlanDuplicatePair] {
+        var previous: [SavedPlanRecord] = []
+        var result: [PlanDuplicatePair] = []
+        for item in creationOrder {
+            if let likelyMatch = find(title: item.title, dueAt: item.dueAt,
+                                      kind: item.kind, among: previous,
+                                      calendar: calendar).first(where: { $0.isSamePlan }) {
+                result.append(PlanDuplicatePair(
+                    original: likelyMatch.record,
+                    possibleExtra: item,
+                    reason: likelyMatch.reason
+                ))
+            }
+            previous.append(item)
+        }
+        return result
+    }
+
     /// Do not infer that two plans are identical merely because they share a
     /// time slot. Equally, a similar name on different days is not automatically
     /// a duplicate: it might be a legitimate recurring activity.

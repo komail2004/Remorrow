@@ -66,6 +66,21 @@ struct ContentView: View {
         return (actions + returns + charges).sorted { $0.dueAt < $1.dueAt }
     }
 
+    private var briefing: DailyBriefing {
+        let plans = saved.map {
+            BriefingEntry(id: "plan-" + $0.id.uuidString, title: $0.title, dueAt: $0.dueAt, kind: $0.kind)
+        }
+        let purchases = returns.filter { !$0.isReturned && $0.hasConfirmedReturnDeadline }.map {
+            BriefingEntry(id: "receipt-" + $0.id.uuidString, title: "Return " + $0.itemName,
+                          dueAt: $0.deadline, kind: "return")
+        }
+        let charges = subscriptions.filter { $0.isActive }.map {
+            BriefingEntry(id: "charge-" + $0.id.uuidString, title: $0.name,
+                          dueAt: $0.nextCharge, kind: "subscription")
+        }
+        return DailyBriefing.build(items: plans + purchases + charges)
+    }
+
     var body: some View {
         TabView(selection: $selection) {
             home
@@ -157,6 +172,7 @@ struct ContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 25) {
                     header
+                    DailyBriefingCard(briefing: briefing)
                     hero
                     captureShortcuts
                     captureCard

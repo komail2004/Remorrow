@@ -60,4 +60,14 @@ final class RemorrowUITests: XCTestCase {
             .waitForExistence(timeout: 10))
         XCTAssertTrue(app.switches["Suggest earlier preparation alerts"].exists)
     }
+
+    func testTodayHasOneCompactAgendaInsteadOfTwoRepeatedCards() {
+        let app = launch()
+        skipGuide(app)
+        XCTAssertTrue(app.staticTexts["Your day"].waitForExistence(timeout: 12))
+        // These were the two stacked headings in the old dashboard; the new
+        // glance card consolidates both counts and actionable rows.
+        XCTAssertFalse(app.staticTexts["YOUR DAILY BRIEFING"].exists)
+        XCTAssertFalse(app.staticTexts["UP NEXT"].exists)
+    }
 }

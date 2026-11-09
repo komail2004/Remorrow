@@ -7,7 +7,7 @@ struct PossibleDuplicatesView: View {
     @Query(sort: \SavedAction.createdAt) private var saved: [SavedAction]
     let onDelete: @MainActor (UUID) async -> Bool
 
-    @State private var dismissed: Set<UUID> = []
+    @AppStorage("acceptedPlanDuplicateIDs") private var acceptedPlanDuplicateIDs = ""
     @State private var selectedForDeletion: UUID?
     @State private var isDeleting = false
     @State private var errorMessage: String?
@@ -17,8 +17,9 @@ struct PossibleDuplicatesView: View {
             SavedPlanRecord(id: $0.id, title: $0.title,
                             dueAt: $0.dueAt, kind: $0.kind)
         }
+        let accepted = Set(acceptedPlanDuplicateIDs.split(separator: ",").map(String.init))
         return PlanConflictDetector.existingDuplicates(in: records)
-            .filter { !dismissed.contains($0.id) }
+            .filter { !accepted.contains($0.id.uuidString) }
     }
 
     var body: some View {
@@ -59,7 +60,11 @@ struct PossibleDuplicatesView: View {
 
                             HStack(spacing: 10) {
                                 Button("Keep both") {
-                                    dismissed.insert(pair.id)
+                                    let accepted = Set(acceptedPlanDuplicateIDs.split(separator: ",").map(String.init))
+                                    if !accepted.contains(pair.id.uuidString) {
+                                        acceptedPlanDuplicateIDs += (acceptedPlanDuplicateIDs.isEmpty ? "" : ",")
+                                            + pair.id.uuidString
+                                    }
                                 }
                                 .buttonStyle(.bordered)
                                 .tint(RemorrowStyle.violet)

@@ -9,6 +9,7 @@ struct ContentView: View {
     @Query(sort: \ReturnItem.deadline) private var returns: [ReturnItem]
     @Query(sort: \SubscriptionItem.nextCharge) private var subscriptions: [SubscriptionItem]
     @AppStorage("currentDraft") private var draft = ""
+    @AppStorage("acceptedPlanDuplicateIDs") private var acceptedPlanDuplicateIDs = ""
     @AppStorage("showDetailsInWidgets") private var showDetailsInWidgets = false
     @AppStorage("smartNotificationsEnabled") private var smartAlerts = false
     @AppStorage("dailyBriefingEnabled") private var dailyBriefingEnabled = false
@@ -86,7 +87,9 @@ struct ContentView: View {
             SavedPlanRecord(id: $0.id, title: $0.title,
                             dueAt: $0.dueAt, kind: $0.kind)
         }
-        return PlanConflictDetector.existingDuplicates(in: records).count
+        let accepted = Set(acceptedPlanDuplicateIDs.split(separator: ",").map(String.init))
+        return PlanConflictDetector.existingDuplicates(in: records)
+            .filter { !accepted.contains($0.id.uuidString) }.count
     }
 
     private var briefing: DailyBriefing {

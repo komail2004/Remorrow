@@ -9,6 +9,10 @@ struct ContentView: View {
     @Query(sort: \ReturnItem.deadline) private var returns: [ReturnItem]
     @Query(sort: \SubscriptionItem.nextCharge) private var subscriptions: [SubscriptionItem]
     @AppStorage("currentDraft") private var draft = ""
+    @AppStorage("smartNotificationsEnabled") private var smartAlerts = false
+    @AppStorage("dailyBriefingEnabled") private var dailyBriefingEnabled = false
+    @AppStorage("dailyBriefingHour") private var dailyBriefingHour = 8
+    @State private var notificationStatus: String?
     @AppStorage("completedWelcomeGuideV1") private var hasCompletedWelcome = false
     @State private var showingWelcome = false
 
@@ -699,6 +703,41 @@ struct ContentView: View {
                                 .font(.subheadline)
                         }
                     }
+                    RemorrowCard {
+                        VStack(alignment: .leading, spacing: 15) {
+                            Label("Mindful notifications", systemImage: "bell.badge")
+                                .font(.headline)
+                                .foregroundStyle(RemorrowStyle.violet)
+                            Toggle("Suggest earlier preparation alerts", isOn: $smartAlerts)
+                                .tint(RemorrowStyle.violet)
+                            Text("New reminders and events can receive an extra alert at a suggested time. Existing events are unchanged.")
+                                .font(.caption)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
+                            Divider()
+                            Toggle("Daily briefing reminder", isOn: $dailyBriefingEnabled)
+                                .tint(RemorrowStyle.violet)
+                            Picker("Morning hour", selection: $dailyBriefingHour) {
+                                ForEach(6...12, id: \.self) { hour in
+                                    Text(String(format: "%02d:00", hour)).tag(hour)
+                                }
+                            }
+                            .disabled(!dailyBriefingEnabled)
+                            Text("One generic daily notification. No private titles on the lock screen.")
+                                .font(.caption)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
+                            if let notificationStatus {
+                                Text(notificationStatus)
+                                    .font(.caption)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                            }
+                        }
+                    }
+                    .onChange(of: dailyBriefingEnabled) { _, _ in
+                        Task { await configureDailyBriefing() }
+                    }
+                    .onChange(of: dailyBriefingHour) { _, _ in
+                        if dailyBriefingEnabled { Task { await configureDailyBriefing() } }
+                    }
                     Button {
                         showingWelcome = true
                     } label: {
@@ -716,6 +755,19 @@ struct ContentView: View {
             }
             .background(RemorrowStyle.canvas.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+        }
+    }
+
+    @MainActor
+    private func configureDailyBriefing() async {
+        do {
+            let configured = try await DailyBriefingScheduler().configure(
+                enabled: dailyBriefingEnabled, hour: dailyBriefingHour)
+            notificationStatus = configured
+                ? (dailyBriefingEnabled ? "Daily briefing scheduled." : "Daily briefing disabled.")
+                : "Notifications aren't authorized. Check iPhone Settings."
+        } catch {
+            notificationStatus = "Could not schedule the daily briefing."
         }
     }
 

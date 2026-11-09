@@ -24,9 +24,8 @@ struct ReturnNotificationScheduler {
 
         let now = Date()
         guard item.deadline > now else { return false }
-        let twoDaysBefore = item.deadline.addingTimeInterval(-2 * 24 * 60 * 60)
-        let alertDate = twoDaysBefore > now ? twoDaysBefore : item.deadline.addingTimeInterval(-60 * 60)
-        guard alertDate > now else { return false }
+        guard let alertDate = SmartNotificationTiming.warningDate(
+            dueAt: item.deadline, title: item.itemName, kind: "return", now: now) else { return false }
 
         let content = UNMutableNotificationContent()
         content.title = "A return deadline is coming up"

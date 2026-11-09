@@ -18,9 +18,10 @@ struct SubscriptionNotificationScheduler {
         default: allowed = false
         }
         guard allowed else { return false }
-        let target = item.nextCharge.addingTimeInterval(-2 * 24 * 60 * 60)
-        let fire = target > Date() ? target : item.nextCharge.addingTimeInterval(-60 * 60)
-        guard fire > Date() else { return false }
+        guard let fire = SmartNotificationTiming.warningDate(
+            dueAt: item.nextCharge, title: item.name, kind: "subscription", frequency: item.frequency) else {
+            return false
+        }
         let payload = UNMutableNotificationContent()
         payload.title = "A subscription charge is coming up"
         payload.body = "Open Remorrow to review the renewal details."

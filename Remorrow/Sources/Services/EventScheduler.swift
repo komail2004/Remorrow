@@ -32,6 +32,10 @@ final class EventScheduler {
             event.endDate = date.addingTimeInterval(3600)
             guard let calendar = store.defaultCalendarForNewEvents else { throw ScheduleFailure.noCalendar }
             event.calendar = calendar
+            if UserDefaults.standard.bool(forKey: "smartNotificationsEnabled") {
+                event.alarms = [EKAlarm(relativeOffset: -SmartNotificationTiming.leadSeconds(
+                    title: title, kind: "calendarEvent"))]
+            }
             try store.save(event, span: .thisEvent)
             return event.eventIdentifier ?? UUID().uuidString
         case .reminder:
@@ -43,6 +47,11 @@ final class EventScheduler {
             let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
             reminder.dueDateComponents = components
             reminder.addAlarm(EKAlarm(absoluteDate: date))
+            if UserDefaults.standard.bool(forKey: "smartNotificationsEnabled"),
+               let early = SmartNotificationTiming.warningDate(
+                   dueAt: date, title: title, kind: "reminder") {
+                reminder.addAlarm(EKAlarm(absoluteDate: early))
+            }
             try store.save(reminder, commit: true)
             return reminder.calendarItemIdentifier
         case .shoppingReturn:
@@ -58,6 +67,10 @@ final class EventScheduler {
             event.title = title
             event.startDate = date
             event.endDate = date.addingTimeInterval(duration)
+            if UserDefaults.standard.bool(forKey: "smartNotificationsEnabled") {
+                event.alarms = [EKAlarm(relativeOffset: -SmartNotificationTiming.leadSeconds(
+                    title: title, kind: "calendarEvent"))]
+            }
             try store.save(event, span: .thisEvent, commit: true)
         } else if kind == ProposedActionKind.reminder.rawValue {
             guard try await store.requestFullAccessToReminders() else { throw ScheduleFailure.accessDenied }
@@ -67,6 +80,11 @@ final class EventScheduler {
             reminder.title = title
             reminder.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
             reminder.alarms = [EKAlarm(absoluteDate: date)]
+            if UserDefaults.standard.bool(forKey: "smartNotificationsEnabled"),
+               let early = SmartNotificationTiming.warningDate(
+                   dueAt: date, title: title, kind: "reminder") {
+                reminder.addAlarm(EKAlarm(absoluteDate: early))
+            }
             try store.save(reminder, commit: true)
         } else {
             throw ScheduleFailure.invalidKind

@@ -46,3 +46,6 @@ The `Remorrow/Sources/Intelligence` files define model-neutral output types and 
 
 ## Receipts & subscriptions — November 2026
 The app includes a Figma-reference-inspired blue/white design and a new combined **Receipts** tab. Receipt and subscription screenshots can be selected from Photos or taken live with the iPhone camera. On-device Vision OCR proposes details, and users must explicitly verify the last return date or next subscription charge before records and optional notifications are saved. Source photos and recognized text stay on-device. See [implementation details](docs/implementation/RECEIPTS-SUBSCRIPTIONS.md).
+
+## Nine-feature intelligence expansion (November 2026)
+Remorrow now includes verified warranty tracking; local cross-category memory search; suggested reschedule updates; capability-gated on-device Apple Foundation Models with local rules fallback; a daily briefing; projected subscription renewals; opt-in contextual alerts; Siri/Shortcuts text capture; and privacy-first WidgetKit Home Screen widgets. See [implementation, tests and known limitations](docs/quality/NINE-FEATURE-ACCEPTANCE.md). Apple Intelligence and other OS integrations require eligible devices and signed physical-device acceptance tests.

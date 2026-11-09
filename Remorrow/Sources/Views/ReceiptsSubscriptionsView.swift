@@ -90,7 +90,7 @@ struct ReceiptsSubscriptionsView: View {
                                                 (item.merchant.isEmpty ? "Purchase" : item.merchant) + " · " + String(format: "$%.2f", $0)
                                             } ?? (item.merchant.isEmpty ? "Purchase" : item.merchant),
                                             date: item.deadline,
-                                            kind: item.isReturned ? "Returned" : "Return by",
+                                            kind: item.isReturned ? "Returned" : (item.hasConfirmedReturnDeadline ? "Return by" : "Receipt saved"),
                                             attachment: item.attachmentName,
                                             symbol: "shippingbox")
                             }
@@ -122,10 +122,11 @@ struct ReceiptsSubscriptionsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $creating) { kind in
-                FinancialCaptureView(kind: kind) { kind, name, merchant, date, amount, frequency, source, image in
+                FinancialCaptureView(kind: kind) { kind, name, merchant, date, amount, frequency, source, image, hasReturnDeadline, warrantyDate in
                     try await create(kind: kind, name: name, merchant: merchant,
                                      date: date, amount: amount, frequency: frequency,
-                                     source: source, image: image)
+                                     source: source, image: image,
+                                     hasReturnDeadline: hasReturnDeadline, warrantyDate: warrantyDate)
                 }
             }
             .sheet(item: $editingReceipt) { item in
@@ -133,7 +134,8 @@ struct ReceiptsSubscriptionsView: View {
                     name: item.itemName,
                     subtitle: item.merchant,
                     amountLabel: item.purchaseAmount.map { String(format: "Paid $%.2f", $0) },
-                    date: item.deadline, dateLabel: "Return deadline",
+                    date: item.deadline, dateLabel: item.hasConfirmedReturnDeadline ? "Return deadline" : "No verified return date",
+                    warrantyDate: item.warrantyExpiresAt, showPrimaryDate: item.hasConfirmedReturnDeadline,
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
                     onToggle: { toggleReturn(item) },
@@ -146,6 +148,7 @@ struct ReceiptsSubscriptionsView: View {
                     name: item.name, subtitle: item.merchant,
                     amountLabel: item.amount.map { String(format: "$%.2f · %@", $0, item.frequency) },
                     date: item.nextCharge, dateLabel: "Next charge",
+                    warrantyDate: nil, showPrimaryDate: true,
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: !item.isActive, inactiveLabel: "Paused",
                     onToggle: { toggleSubscription(item) },
@@ -224,19 +227,23 @@ struct ReceiptsSubscriptionsView: View {
     @MainActor
     private func create(kind: FinancialDocumentKind, name: String, merchant: String,
                         date: Date, amount: Double?, frequency: String,
-                        source: String, image: Data?) async throws {
+                        source: String, image: Data?,
+                        hasReturnDeadline: Bool, warrantyDate: Date?) async throws {
         // Make attachment before inserting the model. Nothing is created on OCR alone.
         let filename = try image.map { try CaptureMediaStore.save($0) }
         do {
             if kind == .receipt {
                 let item = ReturnItem(itemName: name, merchant: merchant, deadline: date)
                 item.purchaseAmount = amount
+                item.hasConfirmedReturnDeadline = hasReturnDeadline
+                item.warrantyExpiresAt = warrantyDate
                 item.sourceText = source.isEmpty ? nil : source
                 item.attachmentName = filename
                 modelContext.insert(item)
                 try modelContext.save()
                 do {
                     let scheduled = try await returnAlerts.schedule(item)
+                    if warrantyDate != nil { _ = try? await returnAlerts.scheduleWarranty(item) }
                     message = scheduled ? "Receipt saved and return alert scheduled."
                                         : "Receipt saved. No notification was scheduled."
                 } catch {
@@ -269,7 +276,10 @@ struct ReceiptsSubscriptionsView: View {
         item.deadline = date
         do {
             try modelContext.save()
-            Task { _ = try? await returnAlerts.schedule(item) }
+            Task {
+                _ = try? await returnAlerts.schedule(item)
+                _ = try? await returnAlerts.scheduleWarranty(item)
+            }
             message = "Receipt updated."
         } catch {
             modelContext.rollback()
@@ -295,7 +305,10 @@ struct ReceiptsSubscriptionsView: View {
         item.isReturned.toggle()
         do {
             try modelContext.save()
-            Task { _ = try? await returnAlerts.schedule(item) }
+            Task {
+                _ = try? await returnAlerts.schedule(item)
+                _ = try? await returnAlerts.scheduleWarranty(item)
+            }
         } catch {
             modelContext.rollback()
             message = "Couldn't update this receipt."
@@ -320,6 +333,7 @@ struct ReceiptsSubscriptionsView: View {
         do {
             try modelContext.save()
             returnAlerts.cancel(id)
+            returnAlerts.cancelWarranty(id)
             CaptureMediaStore.remove(named: image)
         } catch {
             modelContext.rollback()
@@ -349,6 +363,8 @@ private struct FinancialDetailsView: View {
     let amountLabel: String?
     let date: Date
     let dateLabel: String
+    let warrantyDate: Date?
+    let showPrimaryDate: Bool
     let source: String?
     let imageName: String?
     let inactive: Bool
@@ -383,8 +399,20 @@ private struct FinancialDetailsView: View {
                     RemorrowCard {
                         VStack(alignment: .leading, spacing: 8) {
                             SectionEyebrow(title: dateLabel)
-                            Text(date.formatted(date: .complete, time: .shortened))
-                                .font(.headline)
+                            if showPrimaryDate {
+                                Text(date.formatted(date: .complete, time: .shortened))
+                                    .font(.headline)
+                            } else {
+                                Text("No return deadline verified yet.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                            }
+                            if let warrantyDate {
+                                Divider()
+                                SectionEyebrow(title: "WARRANTY COVERAGE ENDS")
+                                Text(warrantyDate.formatted(date: .complete, time: .omitted))
+                                    .font(.headline)
+                            }
                         }
                     }
                     if let source, !source.isEmpty {

@@ -400,7 +400,7 @@ struct ContentView: View {
     }
 
     private var upcomingReturns: [ReturnItem] {
-        returns.filter { !$0.isReturned && $0.deadline >= Date().addingTimeInterval(-7 * 24 * 60 * 60) }
+        returns.filter { !$0.isReturned && $0.hasConfirmedReturnDeadline && $0.deadline >= Date().addingTimeInterval(-7 * 24 * 60 * 60) }
     }
 
     private var captureCard: some View {

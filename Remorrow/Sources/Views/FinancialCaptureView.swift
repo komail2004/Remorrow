@@ -6,7 +6,7 @@ import UIKit
 /// until the user confirms the actual deadline/charge date.
 struct FinancialCaptureView: View {
     let kind: FinancialDocumentKind
-    let onSave: @MainActor (FinancialDocumentKind, String, String, Date, Double?, String, String, Data?) async throws -> Void
+    let onSave: @MainActor (FinancialDocumentKind, String, String, Date, Double?, String, String, Data?, Bool, Date?) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPhoto: PhotosPickerItem?
@@ -17,6 +17,11 @@ struct FinancialCaptureView: View {
     @State private var merchant = ""
     @State private var date = Date().addingTimeInterval(24 * 60 * 60)
     @State private var confirmedDate = false
+    @State private var trackReturn = true
+    @State private var trackWarranty = false
+    @State private var warrantyDate = Date().addingTimeInterval(365 * 86400)
+    @State private var warrantyVerified = false
+    @State private var warrantyEvidence: String?
     @State private var detectedDate: Date?
     @State private var evidence: String?
     @State private var amount = ""
@@ -79,6 +84,8 @@ struct FinancialCaptureView: View {
                                     detectedDate = nil
                                     evidence = nil
                                     confirmedDate = false
+                                    warrantyVerified = false
+                                    warrantyEvidence = nil
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.title2)
@@ -141,12 +148,32 @@ struct FinancialCaptureView: View {
                                     .font(.caption)
                                     .foregroundStyle(RemorrowStyle.secondaryText)
                             }
-                            Toggle(kind == .receipt
-                                   ? "I verified the last return date"
-                                   : "I verified the next charge date",
-                                   isOn: $confirmedDate)
-                                .font(.subheadline)
-                                .tint(RemorrowStyle.violet)
+                            if kind == .receipt {
+                                Toggle("Track a return deadline", isOn: $trackReturn)
+                                    .tint(RemorrowStyle.violet)
+                                if trackReturn {
+                                    Toggle("I verified the last return date", isOn: $confirmedDate)
+                                        .tint(RemorrowStyle.violet)
+                                }
+                                Divider()
+                                Toggle("Track warranty coverage", isOn: $trackWarranty)
+                                    .tint(RemorrowStyle.violet)
+                                if trackWarranty {
+                                    DatePicker("Warranty expires", selection: $warrantyDate,
+                                               in: Date()..., displayedComponents: [.date])
+                                        .tint(RemorrowStyle.violet)
+                                    if let warrantyEvidence {
+                                        Text("Possible warranty date: " + warrantyEvidence)
+                                            .font(.caption)
+                                            .foregroundStyle(RemorrowStyle.violet)
+                                    }
+                                    Toggle("I verified the warranty expiry", isOn: $warrantyVerified)
+                                        .tint(RemorrowStyle.violet)
+                                }
+                            } else {
+                                Toggle("I verified the next charge date", isOn: $confirmedDate)
+                                    .tint(RemorrowStyle.violet)
+                            }
                         }
                     }
 
@@ -169,10 +196,11 @@ struct FinancialCaptureView: View {
                     ) {
                         save()
                     }
-                    .disabled(isScanning || isSaving || !confirmedDate ||
+                    .disabled(isScanning || isSaving ||
+                              (kind == .receipt ? (trackReturn && !confirmedDate) || (trackWarranty && !warrantyVerified) : !confirmedDate) ||
                               name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                              date <= Date())
-                    .opacity(confirmedDate ? 1 : 0.55)
+                              ((kind == .subscription || trackReturn) && date <= Date()))
+                    .opacity((kind == .receipt ? (!trackReturn || confirmedDate) && (!trackWarranty || warrantyVerified) : confirmedDate) ? 1 : 0.55)
 
                     Text("OCR suggestions never create a return or subscription without your confirmation. Your photo stays on this device.")
                         .font(.caption)
@@ -251,6 +279,16 @@ struct FinancialCaptureView: View {
             evidence = result.dateEvidence
             if let detectedDate, detectedDate > Date() { date = detectedDate }
             if let amount = result.amount { self.amount = String(format: "%.2f", amount) }
+            if kind == .receipt {
+                warrantyEvidence = result.warrantyEvidence
+                if let expiry = result.warrantyExpiry, expiry > Date() {
+                    warrantyDate = expiry
+                    trackWarranty = true
+                } else {
+                    trackWarranty = false
+                }
+            }
+            warrantyVerified = false
             confirmedDate = false
         } catch {
             self.error = "The document couldn't be scanned. Try a clearer photo."
@@ -258,7 +296,7 @@ struct FinancialCaptureView: View {
     }
 
     private func save() {
-        guard !isSaving && confirmedDate else { return }
+        guard !isSaving && (kind == .receipt ? (!trackReturn || confirmedDate) && (!trackWarranty || warrantyVerified) : confirmedDate) else { return }
         isSaving = true
         Task {
             defer { isSaving = false }
@@ -271,7 +309,9 @@ struct FinancialCaptureView: View {
                     Double(amount.trimmingCharacters(in: .whitespacesAndNewlines)),
                     frequency,
                     sourceText,
-                    imageData
+                    imageData,
+                    kind == .subscription || trackReturn,
+                    kind == .receipt && trackWarranty ? warrantyDate : nil
                 )
                 dismiss()
             } catch {

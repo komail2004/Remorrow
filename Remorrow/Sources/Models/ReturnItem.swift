@@ -13,6 +13,7 @@ final class ReturnItem {
     var purchaseAmount: Double? = nil
     var purchaseDate: Date? = nil
     var warrantyExpiresAt: Date? = nil
+    var hasConfirmedReturnDeadline: Bool = true
     var receiptNumber: String? = nil
     var sourceText: String? = nil
     var attachmentName: String? = nil

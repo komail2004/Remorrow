@@ -8,7 +8,7 @@ struct ReturnNotificationScheduler {
     func schedule(_ item: ReturnItem) async throws -> Bool {
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: [Self.identifier(item.id)])
-        guard !item.isReturned else { return false }
+        guard !item.isReturned && item.hasConfirmedReturnDeadline else { return false }
 
         let status = await center.notificationSettings()
         let allowed: Bool
@@ -36,6 +36,32 @@ struct ReturnNotificationScheduler {
         let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: false)
         try await center.add(UNNotificationRequest(identifier: Self.identifier(item.id), content: content, trigger: trigger))
         return true
+    }
+
+    func scheduleWarranty(_ item: ReturnItem) async throws -> Bool {
+        let center = UNUserNotificationCenter.current()
+        let identifier = "warranty-" + item.id.uuidString
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        guard let expires = item.warrantyExpiresAt, expires > Date() else { return false }
+        let status = await center.notificationSettings()
+        guard status.authorizationStatus == .authorized || status.authorizationStatus == .provisional else { return false }
+        let prior = Calendar.current.date(byAdding: .day, value: -14, to: expires) ?? expires
+        let fire = prior > Date() ? prior : expires.addingTimeInterval(-86400)
+        guard fire > Date() else { return false }
+        let content = UNMutableNotificationContent()
+        content.title = "Warranty coverage is approaching its end"
+        content.body = "Open Remorrow to check your proof of purchase."
+        content.sound = .default
+        let date = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
+        try await center.add(UNNotificationRequest(
+            identifier: identifier, content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: date, repeats: false)))
+        return true
+    }
+
+    func cancelWarranty(_ id: UUID) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: ["warranty-" + id.uuidString])
     }
 
     func cancel(_ id: UUID) {

@@ -49,3 +49,6 @@ The app includes a Figma-reference-inspired blue/white design and a new combined
 
 ## Nine-feature intelligence expansion (November 2026)
 Remorrow now includes verified warranty tracking; local cross-category memory search; suggested reschedule updates; capability-gated on-device Apple Foundation Models with local rules fallback; a daily briefing; projected subscription renewals; opt-in contextual alerts; Siri/Shortcuts text capture; and privacy-first WidgetKit Home Screen widgets. See [implementation, tests and known limitations](docs/quality/NINE-FEATURE-ACCEPTANCE.md). Apple Intelligence and other OS integrations require eligible devices and signed physical-device acceptance tests.
+
+## Semantic duplicate and schedule-conflict checks
+When saving a reviewed action, Remorrow now checks its own saved plans for event rephrasings, including "Dinner with Rubi" and "Rubi will have dinner with me." It offers Update Existing, flags unrelated overlapping events, and requires confirmation to keep another copy. Existing duplicates can be reviewed in My Plans; nothing is merged or deleted automatically. See [duplicate protection design and acceptance tests](docs/quality/SEMANTIC-DUPLICATE-PREVENTION.md).

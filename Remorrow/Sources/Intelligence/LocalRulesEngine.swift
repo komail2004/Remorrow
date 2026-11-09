@@ -129,7 +129,24 @@ struct LocalRulesEngine: ExtractionEngine {
         calendar.timeZone = TimeZone(identifier: input.timeZoneIdentifier) ?? .current
         calendar.locale = Locale(identifier: input.localeIdentifier)
 
-        if let match = text.firstMatch(datePattern),
+        // For a reschedule, dates before "to" or "instead" are often OLD.
+        // Prefer the date in the explicit destination clause.
+        let relativeMatch: NSTextCheckingResult? = {
+            let lower = text.lowercased()
+            if ["moved", "rescheduled", "changed", "postponed", "instead"].contains(where: { lower.contains($0) }),
+               let preposition = text.range(of: #"(?i)\b(?:to|instead|now on|for)\s+(?=(?:(?:this|next)\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|tomorrow)"#,
+                                                options: .regularExpression) {
+                let remainder = String(text[preposition.lowerBound...])
+                if let later = remainder.firstMatch(datePattern),
+                   let laterRange = Range(later.range, in: remainder) {
+                    let matched = String(remainder[laterRange])
+                    // Re-evaluate on the entire source, to preserve correct ranges.
+                    return text.lastMatch(NSRegularExpression.escapedPattern(for: matched))
+                }
+            }
+            return text.firstMatch(datePattern)
+        }()
+        if let match = relativeMatch,
            let range = Range(match.range, in: text) {
             let evidence = String(text[range])
             let day = dateFromRelative(evidence, reference: input.capturedAt, calendar: calendar)
@@ -228,5 +245,10 @@ private extension String {
 
     func matches(_ pattern: String) -> Bool {
         firstMatch(pattern) != nil
+    }
+
+    func lastMatch(_ pattern: String) -> NSTextCheckingResult? {
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return nil }
+        return expression.matches(in: self, range: NSRange(startIndex..<endIndex, in: self)).last
     }
 }

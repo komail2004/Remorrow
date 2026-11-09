@@ -36,4 +36,9 @@ final class SmartTitleGeneratorTests: XCTestCase {
         XCTAssertEqual(SmartTitleGenerator.title(from: "Alex will have dinner with me"),
                        "Dinner with Alex")
     }
+
+    func testWeekendDateIsRemovedFromMealTitle() {
+        XCTAssertEqual(SmartTitleGenerator.title(from: "Let's dine at 10am on Saturday the 8th"),
+                       "Have dinner")
+    }
 }

@@ -44,6 +44,10 @@ enum SmartTitleGenerator {
                                              with: "", options: .regularExpression)
         result = result.replacingOccurrences(of: #"(?i)\b(?:at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b"#,
                                              with: "", options: .regularExpression)
+        result = result.replacingOccurrences(
+            of: #"(?i)\s+(?:on|by)\s+(?:(?:this|next)\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)?)?\b"#,
+            with: "", options: .regularExpression
+        )
         result = result.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
             .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: ",.;:!?-–")))
         // Removing a date often leaves a dangling "on", "by", or "at".

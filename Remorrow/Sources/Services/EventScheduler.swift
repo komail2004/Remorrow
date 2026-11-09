@@ -12,6 +12,7 @@ enum ScheduleFailure: LocalizedError {
         case .accessDenied: "Calendar or Reminders access is disabled. You can allow it in Settings."
         case .noCalendar: "No writable calendar or reminders list was found."
         case .invalidKind: "This type can't be saved yet."
+        case .itemNotFound: "The original Apple item could not be found. Review before creating a replacement."
         }
     }
 }

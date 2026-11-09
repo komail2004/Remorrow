@@ -5,6 +5,8 @@ struct ReviewView: View {
     let proposal: ActionProposal
     let progressLabel: String
     let onSkip: () -> Void
+    let matchedPlan: SavedAction?
+    let onUpdate: (@MainActor (String, Date, ProposedActionKind) async throws -> Void)?
     let onConfirm: @MainActor (String, Date, ProposedActionKind) async throws -> Void
 
     @State private var title: String
@@ -16,11 +18,15 @@ struct ReviewView: View {
     init(
         proposal: ActionProposal,
         progressLabel: String = "",
+        matchedPlan: SavedAction? = nil,
+        onUpdate: (@MainActor (String, Date, ProposedActionKind) async throws -> Void)? = nil,
         onConfirm: @escaping @MainActor (String, Date, ProposedActionKind) async throws -> Void,
         onSkip: @escaping () -> Void = {}
     ) {
         self.proposal = proposal
         self.progressLabel = progressLabel
+        self.matchedPlan = matchedPlan
+        self.onUpdate = onUpdate
         self.onSkip = onSkip
         self.onConfirm = onConfirm
         _title = State(initialValue: proposal.title)
@@ -118,7 +124,45 @@ struct ReviewView: View {
                         }
                     }
 
-                    RemorrowPrimaryButton(title: "Confirm & save", systemImage: "checkmark", isBusy: isSaving) {
+                    if let matchedPlan, let onUpdate {
+                        RemorrowCard {
+                            VStack(alignment: .leading, spacing: 9) {
+                                Label("POSSIBLE RESCHEDULE", systemImage: "calendar.badge.clock")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(RemorrowStyle.violet)
+                                Text(matchedPlan.title).font(.headline)
+                                Text("Previously: " + matchedPlan.dueAt.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.subheadline)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                                Text("Does this message update that plan? Choose update or keep both.")
+                                    .font(.caption)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                                Button {
+                                    guard !isSaving else { return }
+                                    isSaving = true
+                                    Task {
+                                        defer { isSaving = false }
+                                        do {
+                                            try await onUpdate(title.trimmingCharacters(in: .whitespacesAndNewlines), dueDate, kind)
+                                        } catch {
+                                            errorMessage = error.localizedDescription
+                                        }
+                                    }
+                                } label: {
+                                    Label("Update existing plan", systemImage: "arrow.triangle.2.circlepath")
+                                        .font(.subheadline.weight(.semibold))
+                                        .frame(maxWidth: .infinity, minHeight: 44)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(RemorrowStyle.violet)
+                                .disabled(isSaving || title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                          kind.rawValue != matchedPlan.kind)
+                            }
+                        }
+                    }
+
+                    RemorrowPrimaryButton(title: matchedPlan == nil ? "Confirm & save" : "Save as new plan",
+                                          systemImage: "checkmark", isBusy: isSaving) {
                         guard !isSaving else { return }
                         isSaving = true
                         Task {

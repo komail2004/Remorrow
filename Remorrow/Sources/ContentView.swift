@@ -100,6 +100,11 @@ struct ContentView: View {
             if let candidate {
                 ReviewView(
                     proposal: candidate,
+                    matchedPlan: matchingPlan(for: candidate),
+                    onUpdate: { title, date, kind in
+                        guard let match = matchingPlan(for: candidate) else { throw ScheduleFailure.itemNotFound }
+                        try await updateSaved(match, title: title, date: date, kind: kind)
+                    },
                     progressLabel: totalCandidates > 1
                         ? "Suggestion " + String(reviewedCount + 1) + " of " + String(totalCandidates)
                         : "",
@@ -852,6 +857,37 @@ struct ContentView: View {
                 ? "Plan saved to your iPhone."
                 : String(savedCandidateCount) + " plans saved to your iPhone."
         }
+    }
+
+    private func matchingPlan(for proposal: ActionProposal) -> SavedAction? {
+        PlanMatcher.bestMatch(title: proposal.title,
+                              source: proposal.sourceEvidence,
+                              kind: proposal.kind.rawValue,
+                              candidates: saved)
+    }
+
+    @MainActor
+    private func updateSaved(_ original: SavedAction, title: String,
+                             date: Date, kind: ProposedActionKind) async throws {
+        guard kind.rawValue == original.kind else { throw ScheduleFailure.invalidKind }
+        try await scheduler.update(title: title, date: date, kind: original.kind, externalID: original.externalID)
+        let oldTitle = original.title
+        let oldDate = original.dueAt
+        let oldSource = original.sourceText
+        original.title = title
+        original.dueAt = date
+        original.sourceText = draft
+        do {
+            try modelContext.save()
+        } catch {
+            original.title = oldTitle
+            original.dueAt = oldDate
+            original.sourceText = oldSource
+            throw error
+        }
+        // Keep the original external identifier and attachment; never create a duplicate.
+        savedCandidateCount += 1
+        advanceAfterReview()
     }
 
     @MainActor

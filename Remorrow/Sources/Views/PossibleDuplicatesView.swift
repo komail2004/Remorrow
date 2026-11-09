@@ -69,14 +69,24 @@ struct PossibleDuplicatesView: View {
                                 .buttonStyle(.bordered)
                                 .tint(RemorrowStyle.violet)
 
-                                Button("Remove extra copy", role: .destructive) {
-                                    selectedForDeletion = pair.possibleExtra.id
+                                Menu {
+                                    Button("Remove earlier-saved copy", role: .destructive) {
+                                        selectedForDeletion = pair.original.id
+                                    }
+                                    Button("Remove later-saved copy", role: .destructive) {
+                                        selectedForDeletion = pair.possibleExtra.id
+                                    }
+                                } label: {
+                                    Label("Choose copy to remove", systemImage: "trash")
                                 }
                                 .buttonStyle(.bordered)
                                 .tint(.red)
                                 .disabled(isDeleting)
                             }
                             .font(.caption.weight(.semibold))
+                            Text("Choose which time is correct. You can remove either copy, or keep both.")
+                                .font(.caption)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
                         }
                     }
                 }
@@ -92,7 +102,7 @@ struct PossibleDuplicatesView: View {
                                  set: { if !$0 { selectedForDeletion = nil } }),
             titleVisibility: .visible
         ) {
-            Button("Remove extra copy", role: .destructive) {
+            Button("Remove selected copy", role: .destructive) {
                 guard let id = selectedForDeletion else { return }
                 selectedForDeletion = nil
                 isDeleting = true
@@ -108,7 +118,7 @@ struct PossibleDuplicatesView: View {
                 selectedForDeletion = nil
             }
         } message: {
-            Text("The original plan is preserved. The selected extra copy will be removed only after you confirm.")
+            Text("Only the copy you selected will be removed from Remorrow and its linked Apple Calendar or Reminders item. Other plans remain untouched.")
         }
         .alert("Could not remove plan", isPresented: Binding(
             get: { errorMessage != nil },

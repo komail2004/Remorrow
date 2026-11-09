@@ -28,3 +28,5 @@ This is a conservative local matcher against plans previously saved by Remorrow,
 6. My Plans must display existing possible duplicates; Keep Both persists and removing one asks before deleting its linked Apple item.
 7. Editing title/time/kind in Review must recompute the warning; the save handler checks again before an external write.
 8. Verify explicit 8 PM and missing time behavior; run simulator tests and physical device checks.
+
+**Existing duplicate review:** If two times differ, choose which saved copy to remove—earlier or later. This avoids assuming the oldest record has the correct time. A deletion always requires confirmation and attempts to delete that exact external Apple item.

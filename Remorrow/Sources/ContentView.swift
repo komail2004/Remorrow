@@ -115,14 +115,14 @@ struct ContentView: View {
             if let candidate {
                 ReviewView(
                     proposal: candidate,
+                    progressLabel: totalCandidates > 1
+                        ? "Suggestion " + String(reviewedCount + 1) + " of " + String(totalCandidates)
+                        : "",
                     matchedPlan: matchingPlan(for: candidate),
                     onUpdate: { title, date, kind in
                         guard let match = matchingPlan(for: candidate) else { throw ScheduleFailure.itemNotFound }
                         try await updateSaved(match, title: title, date: date, kind: kind)
                     },
-                    progressLabel: totalCandidates > 1
-                        ? "Suggestion " + String(reviewedCount + 1) + " of " + String(totalCandidates)
-                        : "",
                     onConfirm: { title, date, kind in
                         try await save(title: title, date: date, kind: kind)
                     },

@@ -6,7 +6,7 @@ import UIKit
 /// until the user confirms the actual deadline/charge date.
 struct FinancialCaptureView: View {
     let kind: FinancialDocumentKind
-    let onSave: @MainActor (FinancialDocumentKind, String, String, Date, Double?, String, String, Data?, Bool, Date?) async throws -> Void
+    let onSave: @MainActor (FinancialDocumentKind, String, String, Date, Double?, String, String, Data?, Bool, Date?, Date?, String?) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPhoto: PhotosPickerItem?
@@ -22,6 +22,9 @@ struct FinancialCaptureView: View {
     @State private var warrantyDate = Date().addingTimeInterval(365 * 86400)
     @State private var warrantyVerified = false
     @State private var warrantyEvidence: String?
+    @State private var hasPurchaseDate = false
+    @State private var purchaseDate = Date()
+    @State private var receiptNumber = ""
     @State private var detectedDate: Date?
     @State private var evidence: String?
     @State private var amount = ""
@@ -149,6 +152,18 @@ struct FinancialCaptureView: View {
                                     .foregroundStyle(RemorrowStyle.secondaryText)
                             }
                             if kind == .receipt {
+                                Divider()
+                                SectionEyebrow(title: "PROOF OF PURCHASE")
+                                TextField("Order / receipt number (optional)", text: $receiptNumber)
+                                    .textInputAutocapitalization(.characters)
+                                    .textFieldStyle(.roundedBorder)
+                                Toggle("Purchase date is stated", isOn: $hasPurchaseDate)
+                                    .tint(RemorrowStyle.violet)
+                                if hasPurchaseDate {
+                                    DatePicker("Purchase date", selection: $purchaseDate,
+                                               displayedComponents: .date)
+                                }
+                                Divider()
                                 Toggle("Track a return deadline", isOn: $trackReturn)
                                     .tint(RemorrowStyle.violet)
                                 if trackReturn {
@@ -281,6 +296,13 @@ struct FinancialCaptureView: View {
             if let amount = result.amount { self.amount = String(format: "%.2f", amount) }
             if kind == .receipt {
                 warrantyEvidence = result.warrantyEvidence
+                receiptNumber = result.receiptNumber ?? ""
+                if let detectedPurchase = result.purchaseDate {
+                    hasPurchaseDate = true
+                    purchaseDate = detectedPurchase
+                } else {
+                    hasPurchaseDate = false
+                }
                 if let expiry = result.warrantyExpiry, expiry > Date() {
                     warrantyDate = expiry
                     trackWarranty = true
@@ -311,7 +333,9 @@ struct FinancialCaptureView: View {
                     sourceText,
                     imageData,
                     kind == .subscription || trackReturn,
-                    kind == .receipt && trackWarranty ? warrantyDate : nil
+                    kind == .receipt && trackWarranty ? warrantyDate : nil,
+                    kind == .receipt && hasPurchaseDate ? purchaseDate : nil,
+                    kind == .receipt && !receiptNumber.isEmpty ? receiptNumber : nil
                 )
                 dismiss()
             } catch {

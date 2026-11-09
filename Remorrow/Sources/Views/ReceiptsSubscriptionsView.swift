@@ -136,11 +136,12 @@ struct ReceiptsSubscriptionsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $creating) { kind in
-                FinancialCaptureView(kind: kind) { kind, name, merchant, date, amount, frequency, source, image, hasReturnDeadline, warrantyDate in
+                FinancialCaptureView(kind: kind) { kind, name, merchant, date, amount, frequency, source, image, hasReturnDeadline, warrantyDate, purchaseDate, receiptNumber in
                     try await create(kind: kind, name: name, merchant: merchant,
                                      date: date, amount: amount, frequency: frequency,
                                      source: source, image: image,
-                                     hasReturnDeadline: hasReturnDeadline, warrantyDate: warrantyDate)
+                                     hasReturnDeadline: hasReturnDeadline, warrantyDate: warrantyDate,
+                                     purchaseDate: purchaseDate, receiptNumber: receiptNumber)
                 }
             }
             .sheet(item: $editingReceipt) { item in
@@ -151,6 +152,7 @@ struct ReceiptsSubscriptionsView: View {
                     date: item.deadline, dateLabel: item.hasConfirmedReturnDeadline ? "Return deadline" : "No verified return date",
                     forecastDates: [],
                     warrantyDate: item.warrantyExpiresAt, showPrimaryDate: item.hasConfirmedReturnDeadline,
+                    purchaseDate: item.purchaseDate, receiptNumber: item.receiptNumber,
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
                     onToggle: { toggleReturn(item) },
@@ -165,6 +167,7 @@ struct ReceiptsSubscriptionsView: View {
                     date: item.nextCharge, dateLabel: "Next charge",
                     forecastDates: SubscriptionForecast.dates(from: item.nextCharge, frequency: item.frequency),
                     warrantyDate: nil, showPrimaryDate: true,
+                    purchaseDate: nil, receiptNumber: nil,
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: !item.isActive, inactiveLabel: "Paused",
                     onToggle: { toggleSubscription(item) },
@@ -244,7 +247,8 @@ struct ReceiptsSubscriptionsView: View {
     private func create(kind: FinancialDocumentKind, name: String, merchant: String,
                         date: Date, amount: Double?, frequency: String,
                         source: String, image: Data?,
-                        hasReturnDeadline: Bool, warrantyDate: Date?) async throws {
+                        hasReturnDeadline: Bool, warrantyDate: Date?,
+                        purchaseDate: Date?, receiptNumber: String?) async throws {
         // Make attachment before inserting the model. Nothing is created on OCR alone.
         let filename = try image.map { try CaptureMediaStore.save($0) }
         do {
@@ -253,6 +257,8 @@ struct ReceiptsSubscriptionsView: View {
                 item.purchaseAmount = amount
                 item.hasConfirmedReturnDeadline = hasReturnDeadline
                 item.warrantyExpiresAt = warrantyDate
+                item.purchaseDate = purchaseDate
+                item.receiptNumber = receiptNumber
                 item.sourceText = source.isEmpty ? nil : source
                 item.attachmentName = filename
                 modelContext.insert(item)
@@ -382,6 +388,8 @@ private struct FinancialDetailsView: View {
     let forecastDates: [Date]
     let warrantyDate: Date?
     let showPrimaryDate: Bool
+    let purchaseDate: Date?
+    let receiptNumber: String?
     let source: String?
     let imageName: String?
     let inactive: Bool
@@ -423,6 +431,19 @@ private struct FinancialDetailsView: View {
                                 Text("No return deadline verified yet.")
                                     .font(.subheadline)
                                     .foregroundStyle(RemorrowStyle.secondaryText)
+                            }
+                            if let purchaseDate {
+                                Divider()
+                                SectionEyebrow(title: "PURCHASED")
+                                Text(purchaseDate.formatted(date: .complete, time: .omitted))
+                                    .font(.subheadline.weight(.medium))
+                            }
+                            if let receiptNumber, !receiptNumber.isEmpty {
+                                Divider()
+                                SectionEyebrow(title: "RECEIPT / ORDER NUMBER")
+                                Text(receiptNumber)
+                                    .font(.subheadline.weight(.medium))
+                                    .textSelection(.enabled)
                             }
                             if let warrantyDate {
                                 Divider()

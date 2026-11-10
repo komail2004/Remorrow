@@ -484,6 +484,7 @@ struct ResolveConflictView: View {
                     )
                     .datePickerStyle(.compact)
                     .tint(RemorrowStyle.violet)
+                    .disabled(checking || checkingCustomTime || saving)
                     .accessibilityIdentifier("resolveCustomDatePicker")
                     .onChange(of: customTime) { _, _ in
                         if customTimeIsSelected {
@@ -537,6 +538,10 @@ struct ResolveConflictView: View {
         guard !checkingCustomTime, !checking, !saving,
               let choice, choice == .proposed || choice == .saved else { return }
         checkingCustomTime = true
+        // Capture exactly what was selected at the start; never mark a
+        // different date as free after returning from an async EventKit call.
+        let requestedTime = customTime
+        let requestedChoice = choice
         errorMessage = nil
         selectedSlot = nil
         customTimeIsSelected = false
@@ -548,7 +553,7 @@ struct ResolveConflictView: View {
             let movingID = choice == .saved
                 ? conflictingPlan.externalID : proposedSavedPlan?.externalID
             try await calendarService.validate(
-                date: customTime,
+                date: requestedTime,
                 duration: duration,
                 excluding: movingID,
                 alsoBlocking: choice == .saved && proposedSavedPlan == nil
@@ -556,7 +561,13 @@ struct ResolveConflictView: View {
                                            end: proposedStart.addingTimeInterval(3600))]
                     : []
             )
-            selectedSlot = ResolveSuggestion(start: customTime, duration: duration)
+            // A selection or destination could change while iOS checks.
+            // Only publish availability for the EXACT verified request.
+            guard customTime == requestedTime,
+                  choice == requestedChoice,
+                  showingCustomTime,
+                  selectedSlot == nil else { return }
+            selectedSlot = ResolveSuggestion(start: requestedTime, duration: duration)
             customTimeIsSelected = true
         } catch {
             errorMessage = error.localizedDescription

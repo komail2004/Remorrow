@@ -556,10 +556,7 @@ struct ResolveConflictView: View {
                 date: requestedTime,
                 duration: duration,
                 excluding: movingID,
-                alsoBlocking: choice == .saved && proposedSavedPlan == nil
-                    ? [ResolveBusyInterval(start: proposedStart,
-                                           end: proposedStart.addingTimeInterval(3600))]
-                    : []
+                alsoBlocking: otherCommitmentBlock
             )
             // A selection or destination could change while iOS checks.
             // Only publish availability for the EXACT verified request.
@@ -571,6 +568,21 @@ struct ResolveConflictView: View {
             customTimeIsSelected = true
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Always block the known other commitment even if its EventKit
+    /// availability flag happens to be "free".
+    private var otherCommitmentBlock: [ResolveBusyInterval] {
+        switch choice {
+        case .saved:
+            return [ResolveBusyInterval(start: proposedStart,
+                end: proposedStart.addingTimeInterval(3600))]
+        case .proposed:
+            return [ResolveBusyInterval(start: conflictingPlan.dueAt,
+                end: conflictingPlan.dueAt.addingTimeInterval(3600))]
+        default:
+            return []
         }
     }
 
@@ -629,10 +641,7 @@ struct ResolveConflictView: View {
                     around: conflictingPlan.dueAt,
                     duration: details.duration,
                     excluding: externalID,
-                    alsoBlocking: proposedSavedPlan == nil
-                        ? [ResolveBusyInterval(start: proposedStart,
-                                               end: proposedStart.addingTimeInterval(3600))]
-                        : []
+                    alsoBlocking: otherCommitmentBlock
                 )
             } else {
                 movingDetails = nil
@@ -645,13 +654,15 @@ struct ResolveConflictView: View {
                     slots = try await calendarService.suggestions(
                         around: proposedStart,
                         duration: details.duration,
-                        excluding: externalID
+                        excluding: externalID,
+                        alsoBlocking: otherCommitmentBlock
                     )
                 } else {
                     proposedDetails = nil
                     slots = try await calendarService.suggestions(
                         around: proposedStart,
-                        duration: 3600
+                        duration: 3600,
+                        alsoBlocking: otherCommitmentBlock
                     )
                 }
             }
@@ -678,11 +689,13 @@ struct ResolveConflictView: View {
                 }
                 try await calendarService.validate(
                     date: slot.start, duration: latest.duration,
-                    excluding: externalID
+                    excluding: externalID,
+                    alsoBlocking: otherCommitmentBlock
                 )
             } else {
                 try await calendarService.validate(date: slot.start,
-                                                    duration: slot.duration)
+                                                    duration: slot.duration,
+                                                    alsoBlocking: otherCommitmentBlock)
             }
             // Review mode changes the editable date; My Plans mode updates
             // the explicitly confirmed saved event.
@@ -706,10 +719,7 @@ struct ResolveConflictView: View {
             try await calendarService.validate(
                 date: slot.start, duration: latest.duration,
                 excluding: externalID,
-                alsoBlocking: proposedSavedPlan == nil
-                    ? [ResolveBusyInterval(start: proposedStart,
-                                           end: proposedStart.addingTimeInterval(3600))]
-                    : []
+                alsoBlocking: otherCommitmentBlock
             )
             try await onMoveSavedEvent(conflictingPlan.id, slot.start)
             // The new proposed event is still in Review, not automatically saved.

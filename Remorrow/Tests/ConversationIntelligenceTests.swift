@@ -29,4 +29,12 @@ final class ConversationIntelligenceTests: XCTestCase {
         let result = try await parse("I'll maybe bring the project tomorrow?")
         XCTAssertTrue(result.allSatisfy { $0.proposedDate != nil || $0.uncertaintyFlags.contains("missingDate") })
     }
+
+    func testSevenPMSurvivesFallbackConversationPipeline() async throws {
+        let results = try await parse("Dinner with Ruby at 7pm")
+        XCTAssertEqual(results.first?.suggestedHour, 19)
+        XCTAssertEqual(results.first?.suggestedMinute, 0)
+        XCTAssertNil(results.first?.proposedDate)
+        XCTAssertTrue(results.first?.uncertaintyFlags.contains("missingDate") == true)
+    }
 }

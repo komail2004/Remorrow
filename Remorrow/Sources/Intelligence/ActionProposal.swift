@@ -21,6 +21,9 @@ struct ActionProposal: Identifiable, Codable, Sendable {
     var sourceEvidence: String
     /// Optional, because a missing/ambiguous date MUST NOT be invented.
     var proposedDate: Date?
+    /// Explicit clock time can be known even when the day is unknown.
+    var suggestedHour: Int?
+    var suggestedMinute: Int?
     var uncertaintyFlags: [String]
     var origin: ProposalOrigin
 
@@ -30,6 +33,8 @@ struct ActionProposal: Identifiable, Codable, Sendable {
         title: String,
         sourceEvidence: String,
         proposedDate: Date? = nil,
+        suggestedHour: Int? = nil,
+        suggestedMinute: Int? = nil,
         uncertaintyFlags: [String] = [],
         origin: ProposalOrigin
     ) {
@@ -38,6 +43,8 @@ struct ActionProposal: Identifiable, Codable, Sendable {
         self.title = title
         self.sourceEvidence = sourceEvidence
         self.proposedDate = proposedDate
+        self.suggestedHour = suggestedHour
+        self.suggestedMinute = suggestedMinute
         self.uncertaintyFlags = uncertaintyFlags
         self.origin = origin
     }

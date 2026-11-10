@@ -62,6 +62,8 @@ struct AppleOnDeviceExtractionEngine: ExtractionEngine {
             merged.append(ActionProposal(kind: kind, title: action.title,
                                          sourceEvidence: quote,
                                          proposedDate: detected?.proposedDate,
+                                         suggestedHour: detected?.suggestedHour,
+                                         suggestedMinute: detected?.suggestedMinute,
                                          uncertaintyFlags: Array(Set(flags)).sorted(),
                                          origin: .appleFoundationModels))
         }

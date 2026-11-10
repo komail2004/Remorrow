@@ -46,6 +46,8 @@ struct LocalRulesEngine: ExtractionEngine {
                     title: title,
                     sourceEvidence: candidate,
                     proposedDate: date.date,
+                    suggestedHour: date.hour,
+                    suggestedMinute: date.minute,
                     uncertaintyFlags: Array(Set(flags)).sorted(),
                     origin: .localRules
                 ))
@@ -58,6 +60,17 @@ struct LocalRulesEngine: ExtractionEngine {
         let date: Date?
         let evidence: String
         let flags: [String]
+        let hour: Int?
+        let minute: Int?
+
+        init(date: Date?, evidence: String, flags: [String],
+             hour: Int? = nil, minute: Int? = nil) {
+            self.date = date
+            self.evidence = evidence
+            self.flags = flags
+            self.hour = hour
+            self.minute = minute
+        }
     }
 
     static func segments(from source: String) -> [String] {
@@ -103,7 +116,8 @@ struct LocalRulesEngine: ExtractionEngine {
             let item = piece.trimmingCharacters(in: .whitespacesAndNewlines)
             if let previous = merged.last,
                hasAction(previous), !mentionsDate(previous),
-               !hasAction(item), mentionsDate(item) {
+               !hasAction(item),
+               (mentionsDate(item) || ExplicitTimeParser.parse(in: item) != nil) {
                 merged[merged.count - 1] = previous + " " + item
             } else {
                 merged.append(item)
@@ -160,15 +174,28 @@ struct LocalRulesEngine: ExtractionEngine {
                                            minute: time.minute ?? 0,
                                            second: 0,
                                            of: dayStart) ?? dayStart
-                results.append(DateCandidate(date: result, evidence: evidence, flags: flags))
+                results.append(DateCandidate(date: result, evidence: evidence,
+                                             flags: flags, hour: time.hour,
+                                             minute: time.minute))
                 return results
             }
         }
 
-        // Absolute date fallback: only accept a match with a month/day or numeric
-        // date. A lone 9:41 chat timestamp must never become an event.
-        guard mentionsDate(text),
-              let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue)
+        // A verified time without a calendar day still deserves a suggestion.
+        // The day remains nil; Review requires explicit date confirmation.
+        if !mentionsDate(text) {
+            if let time = ExplicitTimeParser.parse(in: text) {
+                results.append(DateCandidate(date: nil, evidence: time.evidence,
+                                             flags: ["missingDate"],
+                                             hour: time.hour, minute: time.minute))
+            }
+            return results
+        }
+
+        // Only accept absolute date matches when the source also mentions
+        // a month/day; isolated chat timestamps are not calendar dates.
+        guard let detector = try? NSDataDetector(
+            types: NSTextCheckingResult.CheckingType.date.rawValue)
         else { return results }
         let range = NSRange(text.startIndex..<text.endIndex, in: text)
         for match in detector.matches(in: text, options: [], range: range) {
@@ -196,12 +223,18 @@ struct LocalRulesEngine: ExtractionEngine {
                 }
             }
             results.append(DateCandidate(date: proposedDate,
-                                         evidence: evidence, flags: flags))
+                                         evidence: evidence, flags: flags,
+                                         hour: specifiedTime.hour,
+                                         minute: specifiedTime.minute))
         }
         return results
     }
 
     private static func extractTime(from text: String) -> (hour: Int?, minute: Int?, ambiguous: Bool) {
+        if let explicit = ExplicitTimeParser.parse(in: text) {
+            return (explicit.hour, explicit.minute, false)
+        }
+        // "at 7" still needs AM/PM clarification.
         guard let match = text.firstMatch(timePattern) else { return (nil, nil, false) }
         let ns = text as NSString
         guard match.range(at: 1).location != NSNotFound,

@@ -981,6 +981,16 @@ struct ContentView: View {
                                 .foregroundStyle(RemorrowStyle.secondaryText)
                         }
                     }
+                    NavigationLink {
+                        RemorrowPrivacyView()
+                    } label: {
+                        Label("Privacy & on-device data", systemImage: "lock.shield")
+                            .foregroundStyle(RemorrowStyle.violet)
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .padding(.vertical, 7)
+                    .accessibilityIdentifier("privacyDetailsLink")
+
                     Button {
                         showingWelcome = true
                     } label: {
@@ -989,7 +999,10 @@ struct ContentView: View {
                             .font(.subheadline.weight(.semibold))
                     }
                     .padding(.vertical, 7)
-                    Text("Version 0.1 • Early preview")
+                    Text("Version " +
+                         ((Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0") +
+                         " · Build " +
+                         ((Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "1"))
                         .font(.footnote)
                         .foregroundStyle(RemorrowStyle.secondaryText)
                 }

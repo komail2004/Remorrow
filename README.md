@@ -21,7 +21,8 @@
 | Release | [App Store checklist](docs/release/APP-STORE-CHECKLIST.md) · [Marketing](docs/release/GO-TO-MARKET.md) |
 
 ## Status
-**Planning / Sprint 0.** SwiftUI source is a lightweight scaffold. No complete Xcode project, shipping OCR, calendar integration or functional Share Extension is claimed yet. Configure an Xcode iOS project and app/extension targets before compiling.
+**Functional iOS beta in active QA (November 2026); not yet cleared for public App Store release.**
+This repository includes a generated Xcode project specification, native SwiftUI app, Vision OCR, EventKit review-and-confirm actions, Share and Action extensions, App Intents, WidgetKit, finance tracking, schedule conflict resolution and simulator tests. The latest build status is visible under [GitHub Actions](https://github.com/komail2004/Remorrow/actions). App Store signing, real-device integration tests, public privacy and support links, TestFlight, and legal/commercial review remain release gates. See [current launch audit](docs/release/LAUNCH-READINESS-NOV-2026.md).
 
 ## Development
 Use GitHub Issues linked to requirement IDs, short-lived feature branches, pull requests and the [Definition of Done](docs/agile/DEFINITION-OF-DONE.md). Never add private user content or secrets to Git.
@@ -33,7 +34,7 @@ Use GitHub Issues linked to requirement IDs, short-lived feature branches, pull 
 - [Data model](docs/architecture/DATA-MODEL.md) · [Threat model](docs/quality/THREAT-MODEL.md)
 - [Analytics / experiment plan](docs/product/METRICS-EXPERIMENTS.md) · [Launch gates](docs/release/RELEASE-GATES.md)
 
-The `Remorrow/Sources/Intelligence` files define model-neutral output types and interfaces; production model wiring, app target configuration, and real iPhone verification remain to be implemented.
+Intelligence supports deterministic local parsing with optional Apple on-device Foundation Models on eligible iPhones; real iPhone model and permission testing remain necessary.
 
 ## Native iPhone UX (November 2026)
 - Today: actual due events, reminders and return deadlines, sorted chronologically.

@@ -53,4 +53,24 @@ final class ShortcutInboxTests: XCTestCase {
             try SharedInbox.stageShortcutText(String(repeating: "A", count: 20_001))
         )
     }
+
+    func testInboxUsesPayloadCreationTimeRatherThanFilenameOrder() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RemorrowOrdering-" + UUID().uuidString,
+                                    isDirectory: true)
+        try FileManager.default.createDirectory(at: folder,
+                                               withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        let later = SharedInbox.Payload(id: "aaa", type: "text",
+            text: "Later", imageFile: nil,
+            createdAt: Date(timeIntervalSince1970: 2_000))
+        let earlier = SharedInbox.Payload(id: "zzz", type: "text",
+            text: "Earlier", imageFile: nil,
+            createdAt: Date(timeIntervalSince1970: 1_000))
+        try JSONEncoder().encode(later).write(to: folder.appendingPathComponent("aaa.json"))
+        try JSONEncoder().encode(earlier).write(to: folder.appendingPathComponent("zzz.json"))
+        let next = try XCTUnwrap(SharedInbox.loadOldest(in: [folder]))
+        XCTAssertEqual(next.payload.text, "Earlier")
+    }
 }

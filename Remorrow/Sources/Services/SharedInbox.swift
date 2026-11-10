@@ -74,25 +74,31 @@ enum SharedInbox {
     /// Folder override is also used by tests; no App Group is required.
     static func loadOldest(in folders: [URL]) throws -> Pending? {
         let manager = FileManager.default
-        var files: [URL] = []
+        var queue: [(url: URL, payload: Payload)] = []
         for folder in folders where manager.fileExists(atPath: folder.path) {
             let entries = try manager.contentsOfDirectory(
-                at: folder, includingPropertiesForKeys: [.creationDateKey]
+                at: folder, includingPropertiesForKeys: nil
             )
-            files.append(contentsOf: entries.filter { $0.pathExtension == "json" })
+            for file in entries where file.pathExtension == "json" {
+                // Manifests contain the author's timestamp. Reading that is
+                // more reliable than filesystem creation dates (and avoids
+                // platform file-timestamp metadata permissions).
+                guard let data = try? Data(contentsOf: file),
+                      let payload = try? JSONDecoder().decode(Payload.self, from: data)
+                else { continue }
+                queue.append((url: file, payload: payload))
+            }
         }
-        files.sort {
-            let lhs = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate)
-                ?? .distantFuture
-            let rhs = (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate)
-                ?? .distantFuture
-            return lhs == rhs ? $0.lastPathComponent < $1.lastPathComponent : lhs < rhs
+        queue.sort {
+            if $0.payload.createdAt != $1.payload.createdAt {
+                return $0.payload.createdAt < $1.payload.createdAt
+            }
+            return $0.url.lastPathComponent < $1.url.lastPathComponent
         }
-        guard let manifest = files.first else { return nil }
+        guard let next = queue.first else { return nil }
+        let manifest = next.url
+        let payload = next.payload
         let folder = manifest.deletingLastPathComponent()
-        let payload = try JSONDecoder().decode(
-            Payload.self, from: Data(contentsOf: manifest)
-        )
         // Validate image names independently of the source of the manifest.
         let imageURL: URL?
         if let name = payload.imageFile,
@@ -102,7 +108,20 @@ enum SharedInbox {
         } else {
             imageURL = nil
         }
-        let imageData = try imageURL.map { try Data(contentsOf: $0) }
+        // Prevent accidentally decoding an enormous shared file into memory.
+        // The original stays queued if it exceeds this cap; the app reports
+        // the import failure without committing any external action.
+        let imageData: Data?
+        if let imageURL {
+            let attributes = try manager.attributesOfItem(atPath: imageURL.path)
+            if let byteCount = attributes[.size] as? NSNumber,
+               byteCount.int64Value > 30 * 1024 * 1024 {
+                throw SharedInboxError.invalidPayload
+            }
+            imageData = try Data(contentsOf: imageURL)
+        } else {
+            imageData = nil
+        }
         return Pending(payload: payload, manifestURL: manifest,
                        imageURL: imageURL, imageData: imageData)
     }

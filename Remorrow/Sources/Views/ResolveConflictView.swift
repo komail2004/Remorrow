@@ -7,8 +7,10 @@ struct ResolveConflictView: View {
 
     let proposedTitle: String
     let proposedStart: Date
+    /// Non-nil when launched from My Plans with TWO already-saved events.
+    let proposedSavedPlan: SavedPlanRecord?
     let conflictingPlan: SavedPlanRecord
-    let onChooseProposedTime: @MainActor (Date) -> Void
+    let onChooseProposedTime: @MainActor (Date) async throws -> Void
     let onMoveSavedEvent: @MainActor (UUID, Date) async throws -> Void
 
     private enum MoveChoice: String {
@@ -24,11 +26,12 @@ struct ResolveConflictView: View {
     @State private var slots: [ResolveSuggestion] = []
     @State private var selectedSlot: ResolveSuggestion?
     @State private var movingDetails: ResolveEventDetails?
+    @State private var proposedDetails: ResolveEventDetails?
     @State private var checking = false
     @State private var saving = false
     @State private var verifiedCalendar = false
     @State private var errorMessage: String?
-    @State private var confirmingExistingMove = false
+    @State private var showingMoveConfirmation = false
 
     private let calendarService = ResolveCalendarService()
 
@@ -61,19 +64,28 @@ struct ResolveConflictView: View {
                 }
             }
             .confirmationDialog(
-                "Move your saved calendar event?",
-                isPresented: $confirmingExistingMove,
+                "Change this calendar event?",
+                isPresented: $showingMoveConfirmation,
                 titleVisibility: .visible
             ) {
                 Button("Move event on my calendar") {
-                    Task { await confirmMovingExisting() }
+                    Task {
+                        if choice == .proposed {
+                            if let slot = selectedSlot {
+                                await confirmProposedTime(slot)
+                            }
+                        } else {
+                            await confirmMovingExisting()
+                        }
+                    }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 if let slot = selectedSlot {
-                    Text("Move “" + conflictingPlan.title + "” to " +
-                         slot.start.formatted(date: .complete, time: .shortened) +
-                         "? The other proposed event will still need your approval.")
+                    Text("Move “" + (choice == .proposed
+                                     ? proposedTitle : conflictingPlan.title) +
+                         "” to " + slot.start.formatted(date: .complete, time: .shortened) +
+                         "? Remorrow won't change the other event automatically.")
                 }
             }
             .alert("Couldn't resolve conflict", isPresented: Binding(
@@ -342,22 +354,46 @@ struct ResolveConflictView: View {
 
                 if let selectedSlot {
                     if choice == .proposed {
-                        Button {
-                            Task { await confirmProposedTime(selectedSlot) }
-                        } label: {
-                            actionLabel("Use this time", symbol: "checkmark")
+                        if proposedSavedPlan == nil {
+                            Button {
+                                Task { await confirmProposedTime(selectedSlot) }
+                            } label: {
+                                actionLabel("Use this time", symbol: "checkmark")
+                            }
+                            .disabled(saving)
+                            Text("You'll return to Review and confirm saving the new plan.")
+                                .font(.caption)
+                                .foregroundStyle(RemorrowStyle.secondaryText)
+                        } else {
+                            if proposedDetails?.canMoveDirectly == true {
+                                Button {
+                                    showingMoveConfirmation = true
+                                } label: {
+                                    actionLabel("Move saved event",
+                                                symbol: "calendar.badge.clock")
+                                }
+                                .disabled(saving)
+                            }
+                            ShareLink(item: proposalMessage(
+                                for: selectedSlot, eventTitle: proposedTitle)) {
+                                Label("Propose this time instead",
+                                      systemImage: "square.and.arrow.up")
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .tint(RemorrowStyle.violet)
                         }
-                        .disabled(saving)
                     } else {
                         if movingDetails?.canMoveDirectly == true {
                             Button {
-                                confirmingExistingMove = true
+                                showingMoveConfirmation = true
                             } label: {
                                 actionLabel("Move saved event", symbol: "calendar.badge.clock")
                             }
                             .disabled(saving)
                         }
-                        ShareLink(item: proposalMessage(for: selectedSlot)) {
+                        ShareLink(item: proposalMessage(for: selectedSlot,
+                                                        eventTitle: conflictingPlan.title)) {
                             HStack {
                                 Image(systemName: "square.and.arrow.up")
                                 Text("Propose this time instead")
@@ -370,8 +406,10 @@ struct ResolveConflictView: View {
                 }
             }
 
-            if choice == .saved && movingDetails?.canMoveDirectly == false && !checking {
-                Text("This event has invitees, is read-only, or is all-day. Propose a time instead of automatically changing a shared commitment.")
+            if (choice == .saved && movingDetails?.canMoveDirectly == false ||
+                choice == .proposed && proposedSavedPlan != nil &&
+                proposedDetails?.canMoveDirectly == false) && !checking && verifiedCalendar {
+                Text("This event has invitees, is read-only, or is all-day. Propose a time instead of changing a shared commitment.")
                     .font(.caption)
                     .foregroundStyle(RemorrowStyle.secondaryText)
             }
@@ -429,17 +467,31 @@ struct ResolveConflictView: View {
                     around: conflictingPlan.dueAt,
                     duration: details.duration,
                     excluding: externalID,
-                    alsoBlocking: [
-                        ResolveBusyInterval(start: proposedStart,
-                                            end: proposedStart.addingTimeInterval(3600))
-                    ]
+                    alsoBlocking: proposedSavedPlan == nil
+                        ? [ResolveBusyInterval(start: proposedStart,
+                                               end: proposedStart.addingTimeInterval(3600))]
+                        : []
                 )
             } else {
                 movingDetails = nil
-                slots = try await calendarService.suggestions(
-                    around: proposedStart,
-                    duration: 3600
-                )
+                if let saved = proposedSavedPlan {
+                    guard let externalID = saved.externalID else {
+                        throw ResolveCalendarError.missingEvent
+                    }
+                    let details = try await calendarService.details(externalID: externalID)
+                    proposedDetails = details
+                    slots = try await calendarService.suggestions(
+                        around: proposedStart,
+                        duration: details.duration,
+                        excluding: externalID
+                    )
+                } else {
+                    proposedDetails = nil
+                    slots = try await calendarService.suggestions(
+                        around: proposedStart,
+                        duration: 3600
+                    )
+                }
             }
             verifiedCalendar = true
         } catch {
@@ -454,10 +506,25 @@ struct ResolveConflictView: View {
         saving = true
         defer { saving = false }
         do {
-            try await calendarService.validate(date: slot.start,
-                                                duration: slot.duration)
-            // Return to Review; the user still confirms Save there.
-            onChooseProposedTime(slot.start)
+            if let saved = proposedSavedPlan {
+                guard let externalID = saved.externalID else {
+                    throw ResolveCalendarError.missingEvent
+                }
+                let latest = try await calendarService.details(externalID: externalID)
+                guard latest.canMoveDirectly else {
+                    throw ResolveCalendarError.readOnlyOrShared
+                }
+                try await calendarService.validate(
+                    date: slot.start, duration: latest.duration,
+                    excluding: externalID
+                )
+            } else {
+                try await calendarService.validate(date: slot.start,
+                                                    duration: slot.duration)
+            }
+            // Review mode changes the editable date; My Plans mode updates
+            // the explicitly confirmed saved event.
+            try await onChooseProposedTime(slot.start)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
@@ -477,8 +544,10 @@ struct ResolveConflictView: View {
             try await calendarService.validate(
                 date: slot.start, duration: latest.duration,
                 excluding: externalID,
-                alsoBlocking: [ResolveBusyInterval(
-                    start: proposedStart, end: proposedStart.addingTimeInterval(3600))]
+                alsoBlocking: proposedSavedPlan == nil
+                    ? [ResolveBusyInterval(start: proposedStart,
+                                           end: proposedStart.addingTimeInterval(3600))]
+                    : []
             )
             try await onMoveSavedEvent(conflictingPlan.id, slot.start)
             // The new proposed event is still in Review, not automatically saved.
@@ -488,9 +557,10 @@ struct ResolveConflictView: View {
         }
     }
 
-    private func proposalMessage(for slot: ResolveSuggestion) -> String {
+    private func proposalMessage(for slot: ResolveSuggestion,
+                                 eventTitle: String) -> String {
         "Would " + slot.start.formatted(date: .complete, time: .shortened) +
-        " work for “" + conflictingPlan.title +
+        " work for “" + eventTitle +
         "”? It looks free on my calendar, but I wanted to check with you before changing anything."
     }
 

@@ -312,6 +312,7 @@ struct ReviewView: View {
                 ResolveConflictView(
                     proposedTitle: title,
                     proposedStart: dueDate,
+                    proposedSavedPlan: nil,
                     conflictingPlan: conflict.record,
                     onChooseProposedTime: { newTime in
                         dueDate = newTime

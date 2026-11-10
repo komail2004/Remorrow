@@ -140,12 +140,10 @@ struct ReviewView: View {
                                     .tint(RemorrowStyle.violet)
                                 if proposal.proposedDate == nil {
                                     VStack(alignment: .leading, spacing: 9) {
-                                        if proposal.suggestedHour != nil {
+                                        if let recognizedClockLabel {
                                             HStack(spacing: 6) {
                                                 Image(systemName: "clock.badge.checkmark")
-                                                Text("Time recognized: " +
-                                                     dueDate.formatted(date: .omitted,
-                                                                       time: .shortened))
+                                                Text("Recognized from message: " + recognizedClockLabel)
                                             }
                                             .font(.caption.weight(.semibold))
                                             .foregroundStyle(RemorrowStyle.violet)
@@ -176,7 +174,7 @@ struct ReviewView: View {
                             VStack(alignment: .leading, spacing: 5) {
                                 if proposal.proposedDate == nil {
                                     Text(proposal.suggestedHour != nil
-                                         ? "7 PM or another stated time was recognized, but no date was provided. Confirm the actual day."
+                                         ? "The time was recognized, but the day wasn't provided. Choose the actual date."
                                          : "No verified date or time was found. Choose and confirm the actual date and time.")
                                 }
                                 if proposal.uncertaintyFlags.contains("confirmResponsibility") {
@@ -380,6 +378,16 @@ struct ReviewView: View {
             }
         }
     }
+    private var recognizedClockLabel: String? {
+        guard let hour = proposal.suggestedHour, (0...23).contains(hour) else {
+            return nil
+        }
+        let minute = proposal.suggestedMinute ?? 0
+        let displayHour = hour % 12 == 0 ? 12 : hour % 12
+        return String(format: "%d:%02d %@", displayHour, minute,
+                      hour >= 12 ? "PM" : "AM")
+    }
+
     private var conflicts: [PlanConflict] {
         // Do not report conflicts against an illustrative placeholder day.
         guard proposal.proposedDate != nil || hasVerifiedMissingDate else { return [] }

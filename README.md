@@ -52,3 +52,6 @@ Remorrow now includes verified warranty tracking; local cross-category memory se
 
 ## Semantic duplicate and schedule-conflict checks
 When saving a reviewed action, Remorrow now checks its own saved plans for event rephrasings, including "Dinner with Rubi" and "Rubi will have dinner with me." It offers Update Existing, flags unrelated overlapping events, and requires confirmation to keep another copy. Existing duplicates can be reviewed in My Plans; nothing is merged or deleted automatically. See [duplicate protection design and acceptance tests](docs/quality/SEMANTIC-DUPLICATE-PREVENTION.md).
+
+## Remorrow Resolve — schedule-conflict assistant
+When a proposed event conflicts with an event saved through Remorrow, the new **Resolve** flow asks which could move and offers up to three EventKit-checked alternatives. You can choose a different date before saving, explicitly move an editable saved event, or draft a proposal for shared events. **My Plans → Resolve schedule clashes** also handles overlapping saved events. No Calendar changes happen without approval. See [Resolve architecture and acceptance checks](docs/implementation/REMORROW-RESOLVE.md).

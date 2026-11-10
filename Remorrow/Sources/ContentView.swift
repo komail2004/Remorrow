@@ -1281,17 +1281,20 @@ struct ContentView: View {
         item.sourceText = draft
         item.attachmentName = attachmentName
         modelContext.insert(item)
-        do { try modelContext.save() }
-        catch {
+        do {
+            try modelContext.save()
+        } catch {
+            // EventKit succeeded but SwiftData did not. Do not silently
+            // dismiss Review or report success: attempt to undo the Apple
+            // write so a deliberate retry won't create an orphan duplicate.
             modelContext.rollback()
-            CaptureMediaStore.remove(named: item.attachmentName)
-            errorMessage = "Saved to Apple \(kind == .calendarEvent ? "Calendar" : "Reminders"), but the local history update failed. Check the Apple app before retrying."
-            reviewPresented = false
-            draft = ""
-            pendingImageData = nil
-            selectedPhoto = nil
-            editorRevision += 1
-            return
+            CaptureMediaStore.remove(named: attachmentName)
+            do {
+                try await scheduler.delete(kind: kind.rawValue, externalID: externalID)
+            } catch {
+                throw ScheduleFailure.recoveryRequired
+            }
+            throw ScheduleFailure.localSaveFailed
         }
         savedCandidateCount += 1
         advanceAfterReview()

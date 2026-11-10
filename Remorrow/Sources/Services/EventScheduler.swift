@@ -8,6 +8,9 @@ enum ScheduleFailure: LocalizedError {
     case itemNotFound
     case missingIdentifier
     case conflictReviewRequired
+    case localSaveFailed
+    case recoveryRequired
+    case readOnlyOrShared
 
     var errorDescription: String? {
         switch self {
@@ -17,6 +20,9 @@ enum ScheduleFailure: LocalizedError {
         case .itemNotFound: "The original Apple item could not be found. Review before creating a replacement."
         case .missingIdentifier: "Calendar did not return an identifier for the event. Check Calendar before retrying."
         case .conflictReviewRequired: "A similar plan or time conflict was found. Review it before saving another copy."
+        case .localSaveFailed: "Couldn't save Remorrow's local copy, so the new Apple item was undone. You can review and try again."
+        case .recoveryRequired: "Calendar or Reminders saved the item, but Remorrow couldn't save its local copy or undo the Apple item. Check the Apple app before trying again to avoid duplicates."
+        case .readOnlyOrShared: "This event belongs to a shared or read-only calendar. Propose another time instead of changing it directly."
         }
     }
 }
@@ -71,6 +77,10 @@ final class EventScheduler {
         if kind == ProposedActionKind.calendarEvent.rawValue {
             guard try await store.requestFullAccessToEvents() else { throw ScheduleFailure.accessDenied }
             guard let event = store.event(withIdentifier: externalID) else { throw ScheduleFailure.itemNotFound }
+            guard event.calendar?.allowsContentModifications == true,
+                  !event.hasAttendees, !event.isAllDay else {
+                throw ScheduleFailure.readOnlyOrShared
+            }
             let duration = max(60, event.endDate.timeIntervalSince(event.startDate))
             event.title = title
             event.startDate = date

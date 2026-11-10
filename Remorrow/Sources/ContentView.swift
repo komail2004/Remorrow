@@ -10,6 +10,7 @@ struct ContentView: View {
     @Query(sort: \SubscriptionItem.nextCharge) private var subscriptions: [SubscriptionItem]
     @AppStorage("currentDraft") private var draft = ""
     @AppStorage("acceptedPlanDuplicateIDs") private var acceptedPlanDuplicateIDs = ""
+    @AppStorage("acknowledgedScheduleClashes") private var acknowledgedScheduleClashes = ""
     @AppStorage("showDetailsInWidgets") private var showDetailsInWidgets = false
     @AppStorage("smartNotificationsEnabled") private var smartAlerts = false
     @AppStorage("dailyBriefingEnabled") private var dailyBriefingEnabled = false
@@ -119,6 +120,16 @@ struct ContentView: View {
         let accepted = Set(acceptedPlanDuplicateIDs.split(separator: ",").map(String.init))
         return PlanConflictDetector.existingDuplicates(in: records)
             .filter { !accepted.contains($0.id.uuidString) }.count
+    }
+
+    private var scheduleClashCount: Int {
+        let records = saved.map {
+            SavedPlanRecord(id: $0.id, title: $0.title,
+                            dueAt: $0.dueAt, kind: $0.kind)
+        }
+        let accepted = Set(acknowledgedScheduleClashes.split(separator: ",").map(String.init))
+        return SavedScheduleClashDetector.find(records)
+            .filter { !accepted.contains($0.id) }.count
     }
 
     private var briefing: DailyBriefing {
@@ -779,6 +790,43 @@ struct ContentView: View {
                                 .font(.title3.weight(.medium))
                         }
                         .accessibilityLabel("Search all saved memories")
+                    }
+                    if scheduleClashCount > 0 {
+                        NavigationLink {
+                            SavedScheduleConflictsView { id, newDate, otherDate in
+                                guard let stored = saved.first(where: { $0.id == id }) else {
+                                    throw ScheduleFailure.itemNotFound
+                                }
+                                try await moveSavedForResolve(stored, to: newDate,
+                                                              blocking: otherDate)
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "sparkles")
+                                    .font(.title3)
+                                    .foregroundStyle(RemorrowStyle.violet)
+                                    .frame(width: 35, height: 35)
+                                    .background(RemorrowStyle.blueTint,
+                                                in: RoundedRectangle(cornerRadius: 11))
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text("Resolve schedule clashes")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(RemorrowStyle.primaryText)
+                                    Text(String(scheduleClashCount) +
+                                         " overlap(s) · One question, real available times")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                            }
+                            .padding(16)
+                            .background(RemorrowStyle.surface,
+                                        in: RoundedRectangle(cornerRadius: 18))
+                        }
+                        .buttonStyle(.plain)
                     }
                     if suggestedDuplicateCount > 0 {
                         NavigationLink {

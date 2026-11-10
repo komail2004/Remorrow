@@ -37,6 +37,7 @@ struct ContentView: View {
     @State private var showingAllAgenda = false
     @State private var pendingPlanDeletion: SavedAction?
     @State private var importingShare = false
+    @State private var deferredShareWarningShown = false
 
     private let engine = SmartExtractionPipeline()
     private let scheduler = EventScheduler()
@@ -268,6 +269,9 @@ struct ContentView: View {
                 pendingImageData = nil
                 selectedPhoto = nil
                 editorRevision += 1
+            }
+            if !presented {
+                Task { await importSharedContent() }
             }
         }
     }
@@ -1072,6 +1076,18 @@ struct ContentView: View {
         defer { importingShare = false }
         do {
             guard let pending = try SharedInbox.loadOldest() else { return }
+            // Foregrounding the app after sharing must NEVER overwrite the
+            // user's unfinished draft or discard a previously selected photo.
+            // The incoming manifest remains queued until the draft is clear.
+            if !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+               pendingImageData != nil {
+                if !deferredShareWarningShown {
+                    deferredShareWarningShown = true
+                    errorMessage = "Your shared item is safely queued. Finish or clear the current draft, then reopen Remorrow to review the incoming item."
+                }
+                return
+            }
+            deferredShareWarningShown = false
             switch pending.payload.type {
             case "text":
                 pendingImageData = nil

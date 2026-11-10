@@ -201,6 +201,13 @@ struct ContentView: View {
                         try await save(title: title, date: date, kind: kind,
                                        allowConflict: allowConflict)
                     },
+                    onMoveSavedEvent: { id, newDate, proposedDate in
+                        guard let item = saved.first(where: { $0.id == id }) else {
+                            throw ScheduleFailure.itemNotFound
+                        }
+                        try await moveSavedForResolve(item, to: newDate,
+                                                      blocking: proposedDate)
+                    },
                     onSkip: { skipCurrentCandidate() }
                 )
                 .id(candidate.id)
@@ -1151,6 +1158,42 @@ struct ContentView: View {
         // Keep the original external identifier and attachment; never create a duplicate.
         savedCandidateCount += 1
         advanceAfterReview()
+    }
+
+    /// Moving the other commitment is a distinct, explicitly confirmed
+    /// operation. It does not create the new proposed event or advance Review.
+    @MainActor
+    private func moveSavedForResolve(_ item: SavedAction, to newDate: Date,
+                                     blocking proposedDate: Date) async throws {
+        guard item.kind == ProposedActionKind.calendarEvent.rawValue else {
+            throw ScheduleFailure.invalidKind
+        }
+        let checker = ResolveCalendarService()
+        let details = try await checker.details(externalID: item.externalID)
+        guard details.canMoveDirectly else { throw ResolveCalendarError.readOnlyOrShared }
+        try await checker.validate(
+            date: newDate, duration: details.duration,
+            excluding: item.externalID,
+            alsoBlocking: [ResolveBusyInterval(
+                start: proposedDate,
+                end: proposedDate.addingTimeInterval(3600))]
+        )
+        let oldDate = item.dueAt
+        try await scheduler.update(title: item.title, date: newDate,
+                                   kind: item.kind, externalID: item.externalID)
+        item.dueAt = newDate
+        do {
+            try modelContext.save()
+        } catch {
+            item.dueAt = oldDate
+            do {
+                try await scheduler.update(title: item.title, date: oldDate,
+                                           kind: item.kind, externalID: item.externalID)
+            } catch {
+                errorMessage = "The calendar event moved, but its local record couldn't save. Check Calendar before retrying."
+            }
+            throw error
+        }
     }
 
     @MainActor

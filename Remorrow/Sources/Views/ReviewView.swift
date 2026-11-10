@@ -9,6 +9,7 @@ struct ReviewView: View {
     let existingPlans: [SavedPlanRecord]
     let onUpdate: (@MainActor (UUID, String, Date, ProposedActionKind) async throws -> Void)?
     let onConfirm: @MainActor (String, Date, ProposedActionKind, Bool) async throws -> Void
+    let onMoveSavedEvent: (@MainActor (UUID, Date, Date) async throws -> Void)?
 
     @State private var title: String
     @State private var dueDate: Date
@@ -16,6 +17,7 @@ struct ReviewView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var showConflictConfirmation = false
+    @State private var resolvingConflict: PlanConflict?
 
     init(
         proposal: ActionProposal,
@@ -24,6 +26,7 @@ struct ReviewView: View {
         existingPlans: [SavedPlanRecord] = [],
         onUpdate: (@MainActor (UUID, String, Date, ProposedActionKind) async throws -> Void)? = nil,
         onConfirm: @escaping @MainActor (String, Date, ProposedActionKind, Bool) async throws -> Void,
+        onMoveSavedEvent: (@MainActor (UUID, Date, Date) async throws -> Void)? = nil,
         onSkip: @escaping () -> Void = {}
     ) {
         self.proposal = proposal
@@ -33,6 +36,7 @@ struct ReviewView: View {
         self.onUpdate = onUpdate
         self.onSkip = onSkip
         self.onConfirm = onConfirm
+        self.onMoveSavedEvent = onMoveSavedEvent
         _title = State(initialValue: proposal.title)
         _dueDate = State(initialValue: proposal.proposedDate ?? Date().addingTimeInterval(3600))
         _kind = State(initialValue: proposal.kind == .shoppingReturn ? .reminder : proposal.kind)
@@ -207,7 +211,31 @@ struct ReviewView: View {
                                         .font(.subheadline.weight(.semibold))
                                 }
                                 let overlaps = conflicts.filter { $0.reason == .overlappingEvent }
-                                ForEach(overlaps.prefix(3)) { item in
+                                if kind == .calendarEvent, let overlap = overlaps.first,
+                                   onMoveSavedEvent != nil {
+                                    Button {
+                                        resolvingConflict = overlap
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "sparkles")
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                Text("Resolve this conflict")
+                                                    .font(.subheadline.weight(.semibold))
+                                                Text("One question · Up to 3 available times")
+                                                    .font(.caption)
+                                            }
+                                            Spacer()
+                                            Image(systemName: "arrow.up.right")
+                                        }
+                                        .foregroundStyle(.white)
+                                        .padding(14)
+                                        .background(RemorrowStyle.violet,
+                                                    in: RoundedRectangle(cornerRadius: 14))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("resolveConflictButton")
+                                }
+                                ForEach(overlaps.prefix(2)) { item in
                                     HStack(alignment: .top, spacing: 9) {
                                         Image(systemName: "clock")
                                             .foregroundStyle(.orange)
@@ -220,7 +248,7 @@ struct ReviewView: View {
                                         }
                                     }
                                 }
-                                Text("A time conflict is a warning, not a restriction. You can keep genuinely separate plans.")
+                                Text("No calendar changes happen without your confirmation. Separate plans can still overlap.")
                                     .font(.caption)
                                     .foregroundStyle(RemorrowStyle.secondaryText)
                             }
@@ -279,6 +307,22 @@ struct ReviewView: View {
                 Text(samePlanConflict == nil
                      ? "Another event is already scheduled at this time. Save both only if they are genuinely separate plans."
                      : "This looks like a plan you have already saved. Updating the original or skipping this suggestion may be better.")
+            }
+            .sheet(item: $resolvingConflict) { conflict in
+                ResolveConflictView(
+                    proposedTitle: title,
+                    proposedStart: dueDate,
+                    conflictingPlan: conflict.record,
+                    onChooseProposedTime: { newTime in
+                        dueDate = newTime
+                    },
+                    onMoveSavedEvent: { id, newTime in
+                        guard let onMoveSavedEvent else {
+                            throw ScheduleFailure.itemNotFound
+                        }
+                        try await onMoveSavedEvent(id, newTime, dueDate)
+                    }
+                )
             }
             .alert("Couldn't save", isPresented: Binding(
                 get: { errorMessage != nil },

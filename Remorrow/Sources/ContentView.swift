@@ -35,6 +35,7 @@ struct ContentView: View {
     @State private var reviewPresented = false
     @State private var selection = 0
     @State private var showingAllAgenda = false
+    @State private var pendingPlanDeletion: SavedAction?
     @State private var importingShare = false
 
     private let engine = SmartExtractionPipeline()
@@ -890,10 +891,12 @@ struct ContentView: View {
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
-                                    Button("Delete saved action", systemImage: "trash", role: .destructive) {
-                                        Task { _ = await deleteSaved(item) }
-                                    }
+                                Button("Delete saved action", systemImage: "trash", role: .destructive) {
+                                    // Context menus should never delete an
+                                    // external Apple item with a single tap.
+                                    pendingPlanDeletion = item
                                 }
+                            }
                         }
                     }
                 }
@@ -902,6 +905,25 @@ struct ContentView: View {
             }
             .background(RemorrowStyle.canvas.ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+            .confirmationDialog(
+                "Delete this plan from Remorrow and Apple Calendar or Reminders?",
+                isPresented: Binding(
+                    get: { pendingPlanDeletion != nil },
+                    set: { if !$0 { pendingPlanDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete plan", role: .destructive) {
+                    guard let item = pendingPlanDeletion else { return }
+                    pendingPlanDeletion = nil
+                    Task { _ = await deleteSaved(item) }
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingPlanDeletion = nil
+                }
+            } message: {
+                Text("This also removes the linked Apple event or reminder when it is available.")
+            }
         }
     }
 
@@ -1037,7 +1059,8 @@ struct ContentView: View {
             saveMessage = "Removed the saved action."
             return true
         } catch {
-            errorMessage = "Couldn't completely remove this plan. " + error.localizedDescription
+            modelContext.rollback()
+            errorMessage = "Couldn't completely remove this plan. Check Calendar or Reminders for an existing or already-deleted item before retrying. " + error.localizedDescription
             return false
         }
     }

@@ -32,6 +32,10 @@ struct ResolveConflictView: View {
     @State private var verifiedCalendar = false
     @State private var errorMessage: String?
     @State private var showingMoveConfirmation = false
+    @State private var showingCustomTime = false
+    @State private var customTime = Date().addingTimeInterval(24 * 3600)
+    @State private var customTimeIsSelected = false
+    @State private var checkingCustomTime = false
 
     private let calendarService = ResolveCalendarService()
 
@@ -283,6 +287,8 @@ struct ResolveConflictView: View {
                     choice = nil
                     slots = []
                     selectedSlot = nil
+                    showingCustomTime = false
+                    customTimeIsSelected = false
                 }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(RemorrowStyle.violet)
@@ -322,6 +328,7 @@ struct ResolveConflictView: View {
                 ForEach(slots) { slot in
                     Button {
                         selectedSlot = slot
+                        customTimeIsSelected = false
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: selectedSlot?.id == slot.id
@@ -351,6 +358,10 @@ struct ResolveConflictView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("resolveSlot")
                 }
+
+            }
+
+            customTimeOption
 
                 if let selectedSlot {
                     if choice == .proposed {
@@ -404,7 +415,6 @@ struct ResolveConflictView: View {
                         }
                     }
                 }
-            }
 
             if (choice == .saved && movingDetails?.canMoveDirectly == false ||
                 choice == .proposed && proposedSavedPlan != nil &&
@@ -419,6 +429,135 @@ struct ResolveConflictView: View {
                 .font(.caption)
                 .foregroundStyle(RemorrowStyle.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Manual choices use exactly the same EventKit validation as suggestions.
+    /// No time is marked available or moved merely because it was selected.
+    private var customTimeOption: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                showingCustomTime.toggle()
+                if showingCustomTime {
+                    customTime = max(Date().addingTimeInterval(3600),
+                                     (choice == .saved ? conflictingPlan.dueAt : proposedStart)
+                                         .addingTimeInterval(24 * 3600))
+                }
+                if customTimeIsSelected {
+                    selectedSlot = nil
+                    customTimeIsSelected = false
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(RemorrowStyle.violet)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Choose my own time")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(RemorrowStyle.primaryText)
+                        Text("Pick any future date and time")
+                            .font(.caption)
+                            .foregroundStyle(RemorrowStyle.secondaryText)
+                    }
+                    Spacer()
+                    Image(systemName: showingCustomTime ? "chevron.up" : "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RemorrowStyle.secondaryText)
+                }
+                .padding(14)
+                .background(RemorrowStyle.surface,
+                            in: RoundedRectangle(cornerRadius: 17))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("resolveChooseOwnTime")
+
+            if showingCustomTime {
+                VStack(alignment: .leading, spacing: 12) {
+                    DatePicker(
+                        "Date and time",
+                        selection: $customTime,
+                        in: Date()...,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                    .datePickerStyle(.compact)
+                    .tint(RemorrowStyle.violet)
+                    .accessibilityIdentifier("resolveCustomDatePicker")
+                    .onChange(of: customTime) { _, _ in
+                        if customTimeIsSelected {
+                            selectedSlot = nil
+                            customTimeIsSelected = false
+                        }
+                    }
+
+                    Text("We'll verify your choice against calendars you allow Remorrow to check. Other people's schedules aren't included.")
+                        .font(.caption)
+                        .foregroundStyle(RemorrowStyle.secondaryText)
+
+                    if customTimeIsSelected,
+                       let selectedSlot {
+                        Label(
+                            "This time is free on your checked calendars: " +
+                            selectedSlot.start.formatted(date: .abbreviated,
+                                                          time: .shortened),
+                            systemImage: "checkmark.circle.fill"
+                        )
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(RemorrowStyle.violet)
+                        .accessibilityIdentifier("resolveCustomAvailable")
+                    } else {
+                        Button {
+                            Task { await validateCustomTime() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if checkingCustomTime { ProgressView() }
+                                else { Image(systemName: "checkmark.shield") }
+                                Text(checkingCustomTime ? "Checking availability…" : "Check this time")
+                            }
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(RemorrowStyle.violet)
+                        .disabled(checking || checkingCustomTime || saving)
+                        .accessibilityIdentifier("resolveCheckCustomTime")
+                    }
+                }
+                .padding(14)
+                .background(RemorrowStyle.blueTint.opacity(0.35),
+                            in: RoundedRectangle(cornerRadius: 17))
+            }
+        }
+    }
+
+    @MainActor
+    private func validateCustomTime() async {
+        guard !checkingCustomTime, !checking, !saving,
+              let choice, choice == .proposed || choice == .saved else { return }
+        checkingCustomTime = true
+        errorMessage = nil
+        selectedSlot = nil
+        customTimeIsSelected = false
+        defer { checkingCustomTime = false }
+        do {
+            let duration = choice == .saved
+                ? (movingDetails?.duration ?? 3600)
+                : (proposedDetails?.duration ?? 3600)
+            let movingID = choice == .saved
+                ? conflictingPlan.externalID : proposedSavedPlan?.externalID
+            try await calendarService.validate(
+                date: customTime,
+                duration: duration,
+                excluding: movingID,
+                alsoBlocking: choice == .saved && proposedSavedPlan == nil
+                    ? [ResolveBusyInterval(start: proposedStart,
+                                           end: proposedStart.addingTimeInterval(3600))]
+                    : []
+            )
+            selectedSlot = ResolveSuggestion(start: customTime, duration: duration)
+            customTimeIsSelected = true
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -444,6 +583,8 @@ struct ResolveConflictView: View {
         choice = value
         slots = []
         selectedSlot = nil
+        showingCustomTime = false
+        customTimeIsSelected = false
         verifiedCalendar = false
         Task { await checkAvailability() }
     }
@@ -454,6 +595,7 @@ struct ResolveConflictView: View {
         checking = true
         errorMessage = nil
         selectedSlot = nil
+        customTimeIsSelected = false
         slots = []
         defer { checking = false }
         do {

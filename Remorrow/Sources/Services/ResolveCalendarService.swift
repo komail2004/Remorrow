@@ -12,6 +12,7 @@ enum ResolveCalendarError: LocalizedError {
     case missingEvent
     case readOnlyOrShared
     case timeNoLongerFree
+    case invalidProposedTime
     case noCalendars
 
     var errorDescription: String? {
@@ -24,6 +25,8 @@ enum ResolveCalendarError: LocalizedError {
             return "This event involves other people or isn't editable here. Propose a time instead."
         case .timeNoLongerFree:
             return "That time is no longer free in your calendars. Check again for alternatives."
+        case .invalidProposedTime:
+            return "Choose a future time with room to prepare. Nothing was changed."
         case .noCalendars:
             return "There are no accessible calendars to verify. Add or enable a calendar before checking free times."
         }
@@ -98,6 +101,10 @@ final class ResolveCalendarService {
         excluding eventID: String? = nil,
         alsoBlocking tentative: [ResolveBusyInterval] = []
     ) async throws {
+        guard date > Date().addingTimeInterval(60),
+              duration >= 15*60, duration <= 12*3600 else {
+            throw ResolveCalendarError.invalidProposedTime
+        }
         try await authorize()
         let start = date.addingTimeInterval(-15*60)
         let end = date.addingTimeInterval(duration + 15*60)

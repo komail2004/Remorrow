@@ -188,7 +188,8 @@ struct ContentView: View {
                     matchedPlan: matchingPlan(for: candidate),
                     existingPlans: saved.map {
                         SavedPlanRecord(id: $0.id, title: $0.title,
-                                        dueAt: $0.dueAt, kind: $0.kind)
+                                        dueAt: $0.dueAt, kind: $0.kind,
+                                        externalID: $0.externalID)
                     },
                     onUpdate: { id, title, date, kind in
                         guard let match = saved.first(where: { $0.id == id }) else {

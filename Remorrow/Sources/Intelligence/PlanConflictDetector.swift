@@ -7,6 +7,18 @@ struct SavedPlanRecord: Identifiable {
     let title: String
     let dueAt: Date
     let kind: String
+    /// Optional EventKit ID for records from SwiftData. Not available in
+    /// synthetic unit-test fixtures and must never be fabricated.
+    let externalID: String?
+
+    init(id: UUID, title: String, dueAt: Date, kind: String,
+         externalID: String? = nil) {
+        self.id = id
+        self.title = title
+        self.dueAt = dueAt
+        self.kind = kind
+        self.externalID = externalID
+    }
 }
 
 struct PlanConflict: Identifiable {

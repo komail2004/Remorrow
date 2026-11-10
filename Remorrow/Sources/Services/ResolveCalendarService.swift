@@ -50,9 +50,13 @@ final class ResolveCalendarService {
         guard let event = store.event(withIdentifier: externalID) else {
             throw ResolveCalendarError.missingEvent
         }
+        guard let start = event.startDate, let end = event.endDate,
+              end > start else {
+            throw ResolveCalendarError.missingEvent
+        }
         return ResolveEventDetails(
-            duration: max(15*60, event.endDate.timeIntervalSince(event.startDate)),
-            canMoveDirectly: event.calendar.allowsContentModifications &&
+            duration: max(15*60, end.timeIntervalSince(start)),
+            canMoveDirectly: event.calendar?.allowsContentModifications == true &&
                 !event.hasAttendees && !event.isAllDay,
             hasAttendees: event.hasAttendees
         )
@@ -74,8 +78,11 @@ final class ResolveCalendarService {
         let events = store.events(matching: predicate)
         let busy: [ResolveBusyInterval] = events.compactMap {
             guard $0.availability != .free,
-                  $0.eventIdentifier != eventID else { return nil }
-            return ResolveBusyInterval(start: $0.startDate, end: $0.endDate)
+                  $0.eventIdentifier != eventID,
+                  let start = $0.startDate,
+                  let end = $0.endDate,
+                  end > start else { return nil }
+            return ResolveBusyInterval(start: start, end: end)
         }
         return ResolveSlotPlanner.suggestions(
             around: preferred, duration: duration, busy: busy + tentative,
@@ -99,8 +106,11 @@ final class ResolveCalendarService {
         )
         let busy = events.compactMap { event -> ResolveBusyInterval? in
             guard event.availability != .free,
-                  event.eventIdentifier != eventID else { return nil }
-            return ResolveBusyInterval(start: event.startDate, end: event.endDate)
+                  event.eventIdentifier != eventID,
+                  let start = event.startDate,
+                  let end = event.endDate,
+                  end > start else { return nil }
+            return ResolveBusyInterval(start: start, end: end)
         }
         guard ResolveSlotPlanner.isFree(start: date, duration: duration,
                                         busy: busy + tentative) else {

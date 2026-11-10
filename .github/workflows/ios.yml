@@ -18,3 +18,16 @@ jobs:
       - name: Run unit tests
         run: |
           xcodebuild -project Remorrow.xcodeproj -scheme Remorrow -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
+
+  release-compile:
+    name: Unsigned iOS device Release compilation
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Compile all app and extension targets for iPhoneOS (unsigned)
+        run: |
+          xcodebuild -project Remorrow.xcodeproj -scheme Remorrow -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build

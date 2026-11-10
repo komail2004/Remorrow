@@ -8,7 +8,7 @@ struct ReviewView: View {
     let matchedPlan: SavedAction?
     let existingPlans: [SavedPlanRecord]
     let onUpdate: (@MainActor (UUID, String, Date, ProposedActionKind) async throws -> Void)?
-    let onConfirm: @MainActor (String, Date, ProposedActionKind, Bool) async throws -> Void
+    let onConfirm: @MainActor (String, Date, ProposedActionKind, Bool, Bool) async throws -> Void
     let onMoveSavedEvent: (@MainActor (UUID, Date, Date) async throws -> Void)?
 
     @State private var title: String
@@ -18,6 +18,7 @@ struct ReviewView: View {
     @State private var errorMessage: String?
     @State private var showConflictConfirmation = false
     @State private var resolvingConflict: PlanConflict?
+    @State private var checkedCalendarSlot: Date?
 
     init(
         proposal: ActionProposal,
@@ -25,7 +26,7 @@ struct ReviewView: View {
         matchedPlan: SavedAction? = nil,
         existingPlans: [SavedPlanRecord] = [],
         onUpdate: (@MainActor (UUID, String, Date, ProposedActionKind) async throws -> Void)? = nil,
-        onConfirm: @escaping @MainActor (String, Date, ProposedActionKind, Bool) async throws -> Void,
+        onConfirm: @escaping @MainActor (String, Date, ProposedActionKind, Bool, Bool) async throws -> Void,
         onMoveSavedEvent: (@MainActor (UUID, Date, Date) async throws -> Void)? = nil,
         onSkip: @escaping () -> Void = {}
     ) {
@@ -316,6 +317,7 @@ struct ReviewView: View {
                     conflictingPlan: conflict.record,
                     onChooseProposedTime: { newTime in
                         dueDate = newTime
+                        checkedCalendarSlot = newTime
                     },
                     onMoveSavedEvent: { id, newTime in
                         guard let onMoveSavedEvent else {
@@ -371,7 +373,8 @@ struct ReviewView: View {
                     title.trimmingCharacters(in: .whitespacesAndNewlines),
                     dueDate,
                     kind,
-                    allowConflict
+                    allowConflict,
+                    kind == .calendarEvent && checkedCalendarSlot == dueDate
                 )
             } catch {
                 errorMessage = error.localizedDescription
@@ -390,6 +393,6 @@ struct ReviewView: View {
             uncertaintyFlags: ["confirmDate"],
             origin: .localRules
         ),
-        onConfirm: { _, _, _, _ in }
+        onConfirm: { _, _, _, _, _ in }
     )
 }

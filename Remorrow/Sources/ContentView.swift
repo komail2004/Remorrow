@@ -208,9 +208,10 @@ struct ContentView: View {
                         }
                         try await updateSaved(match, title: title, date: date, kind: kind)
                     },
-                    onConfirm: { title, date, kind, allowConflict in
+                    onConfirm: { title, date, kind, allowConflict, checkedCalendarSlot in
                         try await save(title: title, date: date, kind: kind,
-                                       allowConflict: allowConflict)
+                                       allowConflict: allowConflict,
+                                       checkedCalendarSlot: checkedCalendarSlot)
                     },
                     onMoveSavedEvent: { id, newDate, proposedDate in
                         guard let item = saved.first(where: { $0.id == id }) else {
@@ -1246,7 +1247,8 @@ struct ContentView: View {
 
     @MainActor
     private func save(title: String, date: Date, kind: ProposedActionKind,
-                      allowConflict: Bool) async throws {
+                      allowConflict: Bool,
+                      checkedCalendarSlot: Bool) async throws {
         // Prevent bypassing the explicit UI decision if the review sheet
         // has stale state or a second suggestion was saved in this session.
         let existing = saved.map {
@@ -1257,6 +1259,13 @@ struct ContentView: View {
            !PlanConflictDetector.find(title: title, dueAt: date,
                                       kind: kind.rawValue, among: existing).isEmpty {
             throw ScheduleFailure.conflictReviewRequired
+        }
+        // Re-check any previously suggested free time right before saving.
+        // Busy calendars may have changed while the user reviewed the plan.
+        // Someone intentionally keeping a conflicting event may still opt out.
+        if kind == .calendarEvent && checkedCalendarSlot && !allowConflict {
+            try await ResolveCalendarService().validate(
+                date: date, duration: 3600)
         }
         // Keep the captured image durable before writing an external EventKit
         // item, and undo the attachment on any failed system save.

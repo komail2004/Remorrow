@@ -160,10 +160,12 @@ struct ResolveConflictView: View {
                          symbol: "arrow.right", selected: false) {
                 choose(.proposed)
             }
+            .accessibilityIdentifier("resolveMoveProposed")
             choiceButton(title: conflictingPlan.title, subtitle: "Move the saved event instead",
                          symbol: "arrow.left", selected: false) {
                 choose(.saved)
             }
+            .accessibilityIdentifier("resolveMoveSaved")
             if choice != .either {
                 HStack(spacing: 10) {
                     Button("Either could move") {
@@ -586,6 +588,13 @@ struct ResolveConflictView: View {
         showingCustomTime = false
         customTimeIsSelected = false
         verifiedCalendar = false
+        #if DEBUG
+        // UI-only fixture exercises the picker without triggering a real
+        // Calendar authorization prompt. Production always checks EventKit.
+        if ProcessInfo.processInfo.arguments.contains("--remorrow-ui-resolve") {
+            return
+        }
+        #endif
         Task { await checkAvailability() }
     }
 

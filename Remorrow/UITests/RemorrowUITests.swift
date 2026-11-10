@@ -70,4 +70,19 @@ final class RemorrowUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["YOUR DAILY BRIEFING"].exists)
         XCTAssertFalse(app.staticTexts["UP NEXT"].exists)
     }
+
+    func testResolveOffersCustomTimeWithoutForcingSuggestedSlots() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--remorrow-ui-resolve"]
+        app.launch()
+        let newEvent = app.buttons["resolveMoveProposed"]
+        XCTAssertTrue(newEvent.waitForExistence(timeout: 12))
+        newEvent.tap()
+        let chooseOwn = app.buttons["resolveChooseOwnTime"]
+        XCTAssertTrue(chooseOwn.waitForExistence(timeout: 12))
+        chooseOwn.tap()
+        XCTAssertTrue(app.buttons["resolveCheckCustomTime"]
+            .waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Date and time"].exists)
+    }
 }

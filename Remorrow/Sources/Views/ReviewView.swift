@@ -19,6 +19,7 @@ struct ReviewView: View {
     @State private var showConflictConfirmation = false
     @State private var resolvingConflict: PlanConflict?
     @State private var checkedCalendarSlot: Date?
+    @State private var hasVerifiedMissingDate = false
 
     init(
         proposal: ActionProposal,
@@ -39,7 +40,9 @@ struct ReviewView: View {
         self.onConfirm = onConfirm
         self.onMoveSavedEvent = onMoveSavedEvent
         _title = State(initialValue: proposal.title)
-        _dueDate = State(initialValue: proposal.proposedDate ?? Date().addingTimeInterval(3600))
+        _dueDate = State(initialValue: proposal.proposedDate ??
+            ExplicitTimeParser.suggestedPickerDate(
+                hour: proposal.suggestedHour, minute: proposal.suggestedMinute))
         _kind = State(initialValue: proposal.kind == .shoppingReturn ? .reminder : proposal.kind)
     }
 
@@ -135,6 +138,30 @@ struct ReviewView: View {
                                 DatePicker("Date and time", selection: $dueDate)
                                     .datePickerStyle(.graphical)
                                     .tint(RemorrowStyle.violet)
+                                if proposal.proposedDate == nil {
+                                    VStack(alignment: .leading, spacing: 9) {
+                                        if proposal.suggestedHour != nil {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: "clock.badge.checkmark")
+                                                Text("Time recognized: " +
+                                                     dueDate.formatted(date: .omitted,
+                                                                       time: .shortened))
+                                            }
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(RemorrowStyle.violet)
+                                        }
+                                        Text("The message didn't specify a calendar date. Choose the actual day before saving.")
+                                            .font(.caption)
+                                            .foregroundStyle(RemorrowStyle.secondaryText)
+                                        Toggle("I verified the date", isOn: $hasVerifiedMissingDate)
+                                            .font(.subheadline.weight(.semibold))
+                                            .tint(RemorrowStyle.violet)
+                                            .accessibilityIdentifier("confirmMissingDate")
+                                    }
+                                    .padding(12)
+                                    .background(RemorrowStyle.blueTint.opacity(0.48),
+                                                in: RoundedRectangle(cornerRadius: 13))
+                                }
                                 Text("Time zone: \(TimeZone.current.identifier)")
                                     .font(.caption)
                                     .foregroundStyle(RemorrowStyle.secondaryText)
@@ -148,7 +175,9 @@ struct ReviewView: View {
                                 .foregroundStyle(.orange)
                             VStack(alignment: .leading, spacing: 5) {
                                 if proposal.proposedDate == nil {
-                                    Text("No verified date was found. Choose the real date instead of the placeholder.")
+                                    Text(proposal.suggestedHour != nil
+                                         ? "7 PM or another stated time was recognized, but no date was provided. Confirm the actual day."
+                                         : "No verified date or time was found. Choose and confirm the actual date and time.")
                                 }
                                 if proposal.uncertaintyFlags.contains("confirmResponsibility") {
                                     Text("Check that this is your responsibility, not somebody else's.")
@@ -228,6 +257,7 @@ struct ReviewView: View {
                                 .buttonStyle(.borderedProminent)
                                 .tint(RemorrowStyle.violet)
                                 .disabled(isSaving ||
+                                          (proposal.proposedDate == nil && !hasVerifiedMissingDate) ||
                                           title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                                           kind.rawValue != target.kind)
                             }
@@ -282,7 +312,8 @@ struct ReviewView: View {
                             showConflictConfirmation = true
                         }
                     }
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                              (proposal.proposedDate == nil && !hasVerifiedMissingDate))
 
                     Button("Skip this suggestion") { onSkip() }
                         .font(.subheadline.weight(.semibold))
@@ -350,7 +381,9 @@ struct ReviewView: View {
         }
     }
     private var conflicts: [PlanConflict] {
-        PlanConflictDetector.find(
+        // Do not report conflicts against an illustrative placeholder day.
+        guard proposal.proposedDate != nil || hasVerifiedMissingDate else { return [] }
+        return PlanConflictDetector.find(
             title: title,
             dueAt: dueDate,
             kind: kind.rawValue,
@@ -376,7 +409,8 @@ struct ReviewView: View {
     }
 
     private func saveNew(allowConflict: Bool) {
-        guard !isSaving else { return }
+        guard !isSaving &&
+              (proposal.proposedDate != nil || hasVerifiedMissingDate) else { return }
         isSaving = true
         Task {
             defer { isSaving = false }

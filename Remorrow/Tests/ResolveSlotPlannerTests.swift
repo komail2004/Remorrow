@@ -68,4 +68,18 @@ final class ResolveSlotPlannerTests: XCTestCase {
             around: proposed, duration: 3600, busy: [], now: now, calendar: utc)
         XCTAssertTrue(slots.allSatisfy { $0.start >= now.addingTimeInterval(30*60) })
     }
+
+    func testUserSelectedNightTimeCanBeValidatedEvenWhenNotRecommended() {
+        // The recommendation generator prefers daytime, but the manual picker
+        // must permit valid hours outside that heuristic.
+        let night = utc.date(from: DateComponents(
+            year: 2026, month: 11, day: 20, hour: 23, minute: 15
+        ))!
+        XCTAssertTrue(ResolveSlotPlanner.isFree(
+            start: night, duration: 3600, busy: []))
+        XCTAssertFalse(ResolveSlotPlanner.isFree(
+            start: night, duration: 3600,
+            busy: [ResolveBusyInterval(start: night.addingTimeInterval(1800),
+                                       end: night.addingTimeInterval(7200))]))
+    }
 }

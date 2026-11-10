@@ -85,4 +85,15 @@ final class RemorrowUITests: XCTestCase {
             .waitForExistence(timeout: 12))
         XCTAssertTrue(app.staticTexts["Date and time"].exists)
     }
+
+    func testPrivacyExplanationIsAccessibleFromSettings() {
+        let app = launch()
+        skipGuide(app)
+        app.tabBars.buttons["Settings"].tap()
+        let privacy = app.buttons["privacyDetailsLink"]
+        XCTAssertTrue(privacy.waitForExistence(timeout: 12))
+        privacy.tap()
+        XCTAssertTrue(app.staticTexts["Your moments stay yours."]
+            .waitForExistence(timeout: 10))
+    }
 }

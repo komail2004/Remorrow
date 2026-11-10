@@ -40,3 +40,10 @@ The blue/navy interface mirrors Remorrow's existing visual design, with one ques
 - **Data:** no SwiftData migration required, no unapproved App Group access, no new network calls.
 
 **Release gate:** successful GitHub Actions simulator build/unit tests on the final commit, plus physical iPhone verification of real Calendar permissions and actual free/busy behavior. A simulator CI green check does not prove a meeting participant's availability or that Apple Calendar invitations were handled correctly.
+
+## Custom date and time — November 9, 2026
+The Resolve alternatives screen now includes **Choose my own time**, immediately below the recommended slots. It expands a compact native date-and-time picker; users can choose future evenings, weekends or dates beyond the recommendation search window.
+
+Tapping **Check this time** runs a fresh EventKit free/busy query, accounting for the event's real duration when already saved, a one-hour assumed duration for an unsaved proposal, a 15-minute buffer, and tentative competing commitments. A verified custom slot then uses the same explicit confirmation path as a recommended slot; changes in the picker clear the prior verification. Busy, past and unverified times must not be marked free. Recommended slots remain optional and a chosen manual time is checked again immediately before any Calendar write.
+
+UI smoke test: `--remorrow-ui-resolve` exposes a DEBUG-only fixture to verify that **Choose my own time** and its picker remain available even if no suggested slots load. A real iPhone signed test is required for actual EventKit availability, booking/concurrent changes, and attendee restrictions.

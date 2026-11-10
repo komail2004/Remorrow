@@ -66,6 +66,42 @@ struct ReviewView: View {
                         }
                     }
 
+                    if kind == .calendarEvent,
+                       let overlap = conflicts.first(where: {
+                           $0.reason == .overlappingEvent
+                       }), onMoveSavedEvent != nil {
+                        Button {
+                            resolvingConflict = overlap
+                        } label: {
+                            HStack(spacing: 13) {
+                                Image(systemName: "sparkles")
+                                    .font(.title3)
+                                    .frame(width: 35)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("You have a schedule conflict")
+                                        .font(.subheadline.weight(.bold))
+                                    Text("Find a solution in one question")
+                                        .font(.caption)
+                                        .foregroundStyle(.white.opacity(0.86))
+                                }
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(16)
+                            .background(
+                                LinearGradient(colors: [RemorrowStyle.violet,
+                                                        RemorrowStyle.deepBlue],
+                                               startPoint: .topLeading,
+                                               endPoint: .bottomTrailing),
+                                in: RoundedRectangle(cornerRadius: 17)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("resolveConflictButton")
+                    }
+
                     RemorrowCard {
                         VStack(alignment: .leading, spacing: 20) {
                             Label("SUGGESTED PLAN", systemImage: "checkmark.circle")
@@ -212,30 +248,6 @@ struct ReviewView: View {
                                         .font(.subheadline.weight(.semibold))
                                 }
                                 let overlaps = conflicts.filter { $0.reason == .overlappingEvent }
-                                if kind == .calendarEvent, let overlap = overlaps.first,
-                                   onMoveSavedEvent != nil {
-                                    Button {
-                                        resolvingConflict = overlap
-                                    } label: {
-                                        HStack(spacing: 10) {
-                                            Image(systemName: "sparkles")
-                                            VStack(alignment: .leading, spacing: 3) {
-                                                Text("Resolve this conflict")
-                                                    .font(.subheadline.weight(.semibold))
-                                                Text("One question · Up to 3 available times")
-                                                    .font(.caption)
-                                            }
-                                            Spacer()
-                                            Image(systemName: "arrow.up.right")
-                                        }
-                                        .foregroundStyle(.white)
-                                        .padding(14)
-                                        .background(RemorrowStyle.violet,
-                                                    in: RoundedRectangle(cornerRadius: 14))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityIdentifier("resolveConflictButton")
-                                }
                                 ForEach(overlaps.prefix(2)) { item in
                                     HStack(alignment: .top, spacing: 9) {
                                         Image(systemName: "clock")

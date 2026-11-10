@@ -12,6 +12,7 @@ enum ResolveCalendarError: LocalizedError {
     case missingEvent
     case readOnlyOrShared
     case timeNoLongerFree
+    case noCalendars
 
     var errorDescription: String? {
         switch self {
@@ -23,6 +24,8 @@ enum ResolveCalendarError: LocalizedError {
             return "This event involves other people or isn't editable here. Propose a time instead."
         case .timeNoLongerFree:
             return "That time is no longer free in your calendars. Check again for alternatives."
+        case .noCalendars:
+            return "There are no accessible calendars to verify. Add or enable a calendar before checking free times."
         }
     }
 }
@@ -36,6 +39,9 @@ final class ResolveCalendarService {
     private func authorize() async throws {
         guard try await store.requestFullAccessToEvents() else {
             throw ResolveCalendarError.accessDenied
+        }
+        guard !store.calendars(for: .event).isEmpty else {
+            throw ResolveCalendarError.noCalendars
         }
     }
 

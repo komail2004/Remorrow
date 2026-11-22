@@ -255,7 +255,7 @@ struct FinancialCaptureView: View {
                               ((kind == .subscription || trackReturn) && date <= Date()))
                     .opacity((kind == .receipt ? (!trackReturn || confirmedDate) && (!trackWarranty || warrantyVerified) : confirmedDate) ? 1 : 0.55)
 
-                    Text("OCR suggestions never create a return or subscription without your confirmation. Your photo stays on this device.")
+                    Text("Scans are interpreted on your iPhone. You confirm every saved date and can correct any detail. Saved photos may be included in your device backups.")
                         .font(.caption)
                         .foregroundStyle(RemorrowStyle.secondaryText)
                 }

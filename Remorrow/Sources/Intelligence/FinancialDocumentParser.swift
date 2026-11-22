@@ -20,6 +20,7 @@ struct FinancialDocumentSuggestion {
     var receiptNumber: String?
     var sourceText: String
     var nameCandidates: [String] = []
+    var currencyCode: String? = nil
 }
 
 enum FinancialDocumentParser {
@@ -63,9 +64,11 @@ enum FinancialDocumentParser {
             "amount due", "total", "charged", "price"
         ]
         var amount: Double?
+        var matchedAmountLine: String?
         for label in amountLabels {
-            if let value = lines.compactMap({ monetaryAmount(in: $0, label: label) }).first {
-                amount = value
+            if let line = lines.first(where: { monetaryAmount(in: $0, label: label) != nil }) {
+                amount = monetaryAmount(in: line, label: label)
+                matchedAmountLine = line
                 break
             }
         }
@@ -95,7 +98,8 @@ enum FinancialDocumentParser {
                 if !unique.contains(where: { $0.caseInsensitiveCompare(value) == .orderedSame }) {
                     unique.append(value)
                 }
-            }.prefix(4))
+            }.prefix(6)),
+            currencyCode: matchedAmountLine.flatMap(currencyCodeFromAmountLine)
         )
     }
 
@@ -110,7 +114,7 @@ enum FinancialDocumentParser {
 
     private static func strippingTrailingPrice(_ input: String) -> String {
         input.replacingOccurrences(
-            of: #"\s+[$€£]?\d{1,7}(?:[.,]\d{2})\s*$"#,
+            of: #"\s+(?:(?:[$€£]|USD|EUR|GBP)\s*)?\d{1,7}(?:[.,]\d{3})*(?:[.,]\d{2})?\s*$"#,
             with: "", options: .regularExpression
         ).trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -151,9 +155,49 @@ enum FinancialDocumentParser {
     private static func monetaryAmount(in input: String, label: String) -> Double? {
         let escapedLabel = NSRegularExpression.escapedPattern(for: label)
         let regexPattern = #"(?i)^\s*"# + escapedLabel +
-            #"\s*[:\-]?\s*(?:[$€£]\s*)?(\d{1,6}(?:[.,]\d{2})?)\s*(?:USD|EUR|GBP|CAD|AUD)?\s*$"#
+            #"\s*[:\-]?\s*(?:(?:USD|EUR|GBP|CAD|AUD)\s*)?(?:[$€£]\s*)?([0-9][0-9.,]{0,15})\s*(?:USD|EUR|GBP|CAD|AUD)?\s*$"#
         guard let capture = captureFirst(input, pattern: regexPattern) else { return nil }
-        return Double(capture.replacingOccurrences(of: ",", with: "."))
+        return normalizedAmount(capture)
+    }
+
+    /// OCR from both US (1,299.99) and European (1.299,99) receipts.
+    /// Reject ambiguous or malformed amounts rather than silently guessing.
+    private static func normalizedAmount(_ input: String) -> Double? {
+        let lastComma = input.lastIndex(of: ",")
+        let lastPeriod = input.lastIndex(of: ".")
+        var normalized = input
+        if let comma = lastComma, let period = lastPeriod {
+            if comma > period {
+                normalized = normalized.replacingOccurrences(of: ".", with: "")
+                    .replacingOccurrences(of: ",", with: ".")
+            } else {
+                normalized = normalized.replacingOccurrences(of: ",", with: "")
+            }
+        } else if let comma = lastComma {
+            let suffix = input[input.index(after: comma)...]
+            normalized = suffix.count == 3
+                ? input.replacingOccurrences(of: ",", with: "")
+                : input.replacingOccurrences(of: ",", with: ".")
+        } else if let period = lastPeriod {
+            let suffix = input[input.index(after: period)...]
+            if suffix.count == 3 {
+                normalized = input.replacingOccurrences(of: ".", with: "")
+            }
+        }
+        guard let parsed = Double(normalized), parsed.isFinite, parsed >= 0 else { return nil }
+        return parsed
+    }
+
+    private static func currencyCodeFromAmountLine(_ line: String) -> String? {
+        if line.contains("€") { return "EUR" }
+        if line.contains("£") { return "GBP" }
+        let upper = line.uppercased()
+        for currency in ["USD", "EUR", "GBP", "CAD", "AUD"] {
+            if upper.range(of: #"\b"# + currency + #"\b"#,
+                           options: .regularExpression) != nil { return currency }
+        }
+        // A bare dollar sign is ambiguous across several currencies.
+        return nil
     }
 
     private static func labeledDate(in lines: [String], labels: [String]) -> Date? {

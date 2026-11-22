@@ -62,7 +62,10 @@ struct ContentView: View {
             case .plan(let item): item.dueAt
             case .shoppingReturn(let item): item.deadline
             case .warranty(let item): item.warrantyExpiresAt ?? item.createdAt
-            case .subscription(let item): item.nextCharge
+            case .subscription(let item):
+                return SubscriptionForecast.upcomingOccurrences(
+                    from: item.nextCharge, frequency: item.frequency,
+                    intervalCount: item.effectiveBillingInterval, count: 1).first?.date ?? item.nextCharge
             }
         }
 
@@ -90,8 +93,23 @@ struct ContentView: View {
             case .plan, .shoppingReturn:
                 return dueAt < .now ? "Overdue · " + date : date
             case .warranty: return "Warranty ends · " + dueAt.formatted(date: .abbreviated, time: .omitted)
-            case .subscription: return "Next charge · " + date
+            case .subscription(let item):
+                let upcoming = SubscriptionForecast.upcomingOccurrences(
+                    from: item.nextCharge, frequency: item.frequency,
+                    intervalCount: item.effectiveBillingInterval, count: 1).first
+                return (upcoming?.isProjected == true ? "Projected renewal · " :
+                        (upcoming == nil ? "Last verified charge · " : "Next charge · ")) + date
             }
+        }
+    }
+
+    /// Refreshes the limited rolling notification window whenever the app is opened.
+    /// iOS does not guarantee that unlaunched apps can reschedule local alerts.
+    @MainActor
+    private func refreshSubscriptionReminders() async {
+        let alerts = SubscriptionNotificationScheduler()
+        for item in subscriptions {
+            _ = try? await alerts.schedule(item)
         }
     }
 
@@ -109,8 +127,13 @@ struct ContentView: View {
             }
             return .warranty(item)
         }
-        let charges = subscriptions.filter { $0.isActive && $0.nextCharge >= Date().addingTimeInterval(-7 * 24 * 60 * 60) }
-            .map { AgendaEntry.subscription($0) }
+        let charges = subscriptions.filter {
+            guard $0.isActive else { return false }
+            let renewed = SubscriptionForecast.upcomingOccurrences(
+                from: $0.nextCharge, frequency: $0.frequency,
+                intervalCount: $0.effectiveBillingInterval, count: 1).first
+            return renewed != nil || $0.nextCharge >= Date().addingTimeInterval(-7 * 24 * 60 * 60)
+        }.map { AgendaEntry.subscription($0) }
         return (actions + returnEntries + warranties + charges).sorted { $0.dueAt < $1.dueAt }
     }
 
@@ -148,9 +171,13 @@ struct ContentView: View {
                                  title: "Warranty for " + item.itemName,
                                  dueAt: deadline, kind: "warranty")
         }
-        let charges = subscriptions.filter { $0.isActive }.map {
-            BriefingEntry(id: "charge-" + $0.id.uuidString, title: $0.name,
-                          dueAt: $0.nextCharge, kind: "subscription")
+        let charges = subscriptions.filter { $0.isActive }.compactMap { item -> BriefingEntry? in
+            guard let next = SubscriptionForecast.upcomingOccurrences(
+                from: item.nextCharge, frequency: item.frequency,
+                intervalCount: item.effectiveBillingInterval, count: 1).first else { return nil }
+            return BriefingEntry(id: "charge-" + item.id.uuidString,
+                                 title: (next.isProjected ? "Projected renewal: " : "") + item.name,
+                                 dueAt: next.date, kind: "subscription")
         }
         return DailyBriefing.build(items: plans + purchases + warranties + charges)
     }
@@ -240,6 +267,7 @@ struct ContentView: View {
             Task { await readPhoto(newValue) }
         }
         .task {
+            await refreshSubscriptionReminders()
             WidgetSnapshotWriter.publish(briefing: briefing, allowDetails: showDetailsInWidgets)
             if ProcessInfo.processInfo.arguments.contains("--remorrow-ui-guide") {
                 hasCompletedWelcome = false
@@ -252,7 +280,10 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, newValue in
             if newValue == .active && hasCompletedWelcome {
-                Task { await importSharedContent() }
+                Task {
+                    await importSharedContent()
+                    await refreshSubscriptionReminders()
+                }
             }
         }
         .onChange(of: briefingFingerprint) { _, _ in

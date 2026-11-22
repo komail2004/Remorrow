@@ -178,6 +178,7 @@ struct FinancialCaptureView: View {
                                         .textInputAutocapitalization(.characters)
                                         .autocorrectionDisabled()
                                         .textFieldStyle(.roundedBorder)
+                                        .accessibilityIdentifier("financialCurrency")
                                 }
                                 Text("Amount and billing cycle are editable now and after saving.")
                                     .font(.caption)

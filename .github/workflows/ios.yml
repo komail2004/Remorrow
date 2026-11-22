@@ -3,9 +3,16 @@ on:
   pull_request:
   push:
     branches: [main]
+# Keep only the latest validation of a pull request to avoid costly, stale
+# simulator runs when release-hardening fixes land in quick succession.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen
@@ -22,6 +29,7 @@ jobs:
   release-compile:
     name: Unsigned iOS device Release compilation
     runs-on: macos-15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen

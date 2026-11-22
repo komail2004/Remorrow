@@ -6,7 +6,7 @@ import UIKit
 /// until the user confirms the actual deadline/charge date.
 struct FinancialCaptureView: View {
     let kind: FinancialDocumentKind
-    let onSave: @MainActor (FinancialDocumentKind, String, String, Date, Double?, String, String, Data?, Bool, Date?, Date?, String?) async throws -> Void
+    let onSave: @MainActor (FinancialDocumentKind, String, String, Date, Double?, String, Int, String, String, Data?, Bool, Date?, Date?, String?) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPhoto: PhotosPickerItem?
@@ -29,6 +29,9 @@ struct FinancialCaptureView: View {
     @State private var evidence: String?
     @State private var amount = ""
     @State private var frequency = "Monthly"
+    @State private var billingInterval = 1
+    @State private var currencyCode = "USD"
+    @State private var nameCandidates: [String] = []
     @State private var isScanning = false
     @State private var isSaving = false
     @State private var error: String?
@@ -84,6 +87,7 @@ struct FinancialCaptureView: View {
                                 Button {
                                     self.imageData = nil
                                     sourceText = ""
+                                    nameCandidates = []
                                     detectedDate = nil
                                     evidence = nil
                                     confirmedDate = false
@@ -110,6 +114,17 @@ struct FinancialCaptureView: View {
                                 TextField(kind == .receipt ? "e.g. Headphones" : "e.g. Music service", text: $name)
                                     .textInputAutocapitalization(.words)
                                     .textFieldStyle(.roundedBorder)
+                                if nameCandidates.count > 1 {
+                                    Menu("Choose another detected name") {
+                                        ForEach(nameCandidates, id: \.self) { option in
+                                            Button(option) { name = option }
+                                        }
+                                    }
+                                    .font(.caption)
+                                }
+                                Text("You can always correct the name before saving.")
+                                    .font(.caption2)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
                             }
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Merchant or service")
@@ -127,10 +142,31 @@ struct FinancialCaptureView: View {
                                 }
                             if kind == .subscription {
                                 Picker("Renewal frequency", selection: $frequency) {
-                                    ForEach(["Monthly", "Yearly", "Weekly", "Other"], id: \.self) { value in
+                                    ForEach(["Daily", "Weekly", "Monthly", "Yearly", "Other"], id: \.self) { value in
                                         Text(value).tag(value)
                                     }
                                 }
+                                if frequency != "Other" {
+                                    Stepper(value: $billingInterval, in: 1...365) {
+                                        Text(SubscriptionForecast.cadenceDescription(
+                                            frequency: frequency, intervalCount: billingInterval))
+                                    }
+                                    .accessibilityLabel("Billing interval")
+                                } else {
+                                    Text("Choose a known cadence for recurring forecasts, or keep this as an unforecasted charge.")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Currency code").font(.caption.weight(.semibold))
+                                    TextField("e.g. USD", text: $currencyCode)
+                                        .textInputAutocapitalization(.characters)
+                                        .autocorrectionDisabled()
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                                Text("Amount and billing cycle are editable now and after saving.")
+                                    .font(.caption)
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
                             }
                             Divider()
                             Text(kind == .receipt ? "LAST ELIGIBLE RETURN DAY" : "NEXT CHARGE DATE")
@@ -214,6 +250,8 @@ struct FinancialCaptureView: View {
                     .disabled(isScanning || isSaving ||
                               (kind == .receipt ? (trackReturn && !confirmedDate) || (trackWarranty && !warrantyVerified) : !confirmedDate) ||
                               name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                              !amountIsValid ||
+                              (kind == .subscription && !currencyIsValid) ||
                               ((kind == .subscription || trackReturn) && date <= Date()))
                     .opacity((kind == .receipt ? (!trackReturn || confirmedDate) && (!trackWarranty || warrantyVerified) : confirmedDate) ? 1 : 0.55)
 
@@ -263,6 +301,22 @@ struct FinancialCaptureView: View {
         }
     }
 
+    private var parsedAmount: Double? {
+        let value = amount.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return nil }
+        return Double(value.replacingOccurrences(of: ",", with: "."))
+    }
+
+    private var amountIsValid: Bool {
+        amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            (parsedAmount.map { $0.isFinite && $0 >= 0 } ?? false)
+    }
+
+    private var currencyIsValid: Bool {
+        let value = currencyCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return value.range(of: #"^[A-Z]{3}$"#, options: .regularExpression) != nil
+    }
+
     private func captureButton(_ title: String, icon: String) -> some View {
         VStack(spacing: 11) {
             Image(systemName: icon)
@@ -289,6 +343,7 @@ struct FinancialCaptureView: View {
             sourceText = text
             let result = FinancialDocumentParser.interpret(text, kind: kind)
             name = result.name
+            nameCandidates = result.nameCandidates
             merchant = result.merchant
             detectedDate = result.date
             evidence = result.dateEvidence
@@ -328,8 +383,10 @@ struct FinancialCaptureView: View {
                     name.trimmingCharacters(in: .whitespacesAndNewlines),
                     merchant.trimmingCharacters(in: .whitespacesAndNewlines),
                     date,
-                    Double(amount.trimmingCharacters(in: .whitespacesAndNewlines)),
+                    parsedAmount,
                     frequency,
+                    billingInterval,
+                    currencyCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
                     sourceText,
                     imageData,
                     kind == .subscription || trackReturn,

@@ -42,4 +42,37 @@ final class LocalPersistenceTests: XCTestCase {
         XCTAssertEqual(try context.fetch(FetchDescriptor<SavedAction>()).count, 1)
         XCTAssertEqual(try context.fetch(FetchDescriptor<SubscriptionItem>()).count, 1)
     }
+
+    func testSubscriptionBillingEditsPersistLocally() throws {
+        let schema = Schema([SavedAction.self, ReturnItem.self, SubscriptionItem.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = container.mainContext
+        let item = SubscriptionItem(name: "Music", merchant: "Service",
+                                    nextCharge: .now, amount: 7.99,
+                                    frequency: "Monthly", billingInterval: 1,
+                                    currencyCode: "USD")
+        context.insert(item)
+        try context.save()
+        item.name = "Family Music"
+        item.amount = 24.95
+        item.frequency = "Monthly"
+        item.billingInterval = 3
+        item.currencyCode = "EUR"
+        try context.save()
+        let retrieved = try XCTUnwrap(context.fetch(FetchDescriptor<SubscriptionItem>()).first)
+        XCTAssertEqual(retrieved.name, "Family Music")
+        XCTAssertEqual(retrieved.amount, 24.95)
+        XCTAssertEqual(retrieved.effectiveBillingInterval, 3)
+        XCTAssertEqual(retrieved.effectiveCurrencyCode, "EUR")
+    }
+
+    func testLegacySubscriptionFieldsHaveSafeDefaultValues() {
+        let item = SubscriptionItem(name: "Existing", merchant: "",
+                                    nextCharge: .now, amount: 5, frequency: "Monthly")
+        item.billingInterval = nil
+        item.currencyCode = nil
+        XCTAssertEqual(item.effectiveBillingInterval, 1)
+        XCTAssertEqual(item.effectiveCurrencyCode, "USD")
+    }
 }

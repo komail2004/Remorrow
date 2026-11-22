@@ -63,7 +63,7 @@ struct ContentView: View {
             case .shoppingReturn(let item): item.deadline
             case .warranty(let item): item.warrantyExpiresAt ?? item.createdAt
             case .subscription(let item):
-                return SubscriptionForecast.upcomingOccurrences(
+                SubscriptionForecast.upcomingOccurrences(
                     from: item.nextCharge, frequency: item.frequency,
                     intervalCount: item.effectiveBillingInterval, count: 1).first?.date ?? item.nextCharge
             }

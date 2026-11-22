@@ -122,7 +122,7 @@ enum FinancialDocumentParser {
               !value.lowercased().hasPrefix("http"),
               !value.lowercased().hasPrefix("www.") else { return false }
         let excluded = ["receipt", "invoice", "order", "date", "subtotal",
-                        "total", "tax", "thank", "payment", "bill to", "sold to",
+                        "total", "grand total", "tax", "thank", "payment", "bill to", "sold to",
                         "item", "product", "description", "charged", "amount",
                         "transaction", "return", "purchase", "subscription", "qty"]
         return !excluded.contains(where: { value.lowercased().hasPrefix($0) })
@@ -135,12 +135,15 @@ enum FinancialDocumentParser {
         let lower = value.lowercased()
         let excluded = [
             "receipt", "invoice", "order", "date", "subtotal", "total",
+            "grand total", "order total", "total paid", "amount paid",
             "tax", "discount", "shipping", "payment", "visa", "mastercard",
             "change", "cash", "credit", "debit", "thank", "balance",
             "authorization", "terminal", "transaction", "bill to", "sold by",
             "return", "warranty", "www.", "http", "contact", "phone",
             "customer", "purchased", "amount", "renew", "next billing",
-            "billing date", "qty", "quantity", "item description"
+            "billing date", "qty", "quantity", "item description",
+            "merchant:", "seller:", "provider:", "store name:",
+            "card ending", "payment method", "ref no", "invoice number", "receipt number"
         ]
         return !excluded.contains(where: { lower.hasPrefix($0) })
     }

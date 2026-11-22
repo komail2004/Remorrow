@@ -40,6 +40,29 @@ final class RemorrowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Add subscription"].exists)
     }
 
+
+    func testSubscriptionCaptureExposesEditableBillingCycleAndCurrency() {
+        let app = launch()
+        skipGuide(app)
+        app.tabBars.buttons["Receipts"].tap()
+        app.buttons["Add subscription"].tap()
+        XCTAssertTrue(app.textFields["financialName"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.textFields["financialAmount"].exists)
+        XCTAssertTrue(app.textFields["financialCurrency"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["financialFrequency"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["financialInterval"].exists)
+    }
+
+    func testReceiptCaptureDoesNotRequireAnImageToEditDetails() {
+        let app = launch()
+        skipGuide(app)
+        app.tabBars.buttons["Receipts"].tap()
+        app.buttons["Scan receipt"].tap()
+        XCTAssertTrue(app.textFields["financialName"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.textFields["financialAmount"].exists)
+        XCTAssertTrue(app.textFields["financialCurrency"].exists)
+    }
+
     func testPlansAndSearchCanBeReached() {
         let app = launch()
         skipGuide(app)

@@ -49,12 +49,78 @@ final class FinancialDocumentParserTests: XCTestCase {
         let proposal = FinancialDocumentParser.interpret(document, kind: .subscription)
         XCTAssertNotNil(proposal.date)
         XCTAssertEqual(proposal.amount, 9.99)
-        XCTAssertTrue(proposal.name.contains("subscription"))
+        XCTAssertEqual(proposal.name, "Music Service")
     }
 
     func testEmptyInputDoesNotGuessDateOrAmount() {
         let result = FinancialDocumentParser.interpret("", kind: .receipt)
         XCTAssertNil(result.date)
         XCTAssertNil(result.amount)
+    }
+
+    func testReceiptHeaderIsNotTreatedAsProductName() {
+        let receipt = """
+        RECEIPT
+        Bluebird Store
+        Transaction 892100
+        Wireless headphones 49.99
+        Subtotal $49.99
+        Tax $3.50
+        Grand Total $53.49
+        """
+        let proposal = FinancialDocumentParser.interpret(receipt, kind: .receipt)
+        XCTAssertEqual(proposal.merchant, "Bluebird Store")
+        XCTAssertEqual(proposal.name, "Wireless headphones")
+        XCTAssertEqual(proposal.amount, 53.49)
+    }
+
+    func testExplicitItemNameWinsOverGenericHeader() {
+        let receipt = """
+        Purchase confirmation
+        Merchant: Example Electronics
+        Product: Noise Cancelling Headphones
+        Amount paid: $79.90
+        """
+        let proposal = FinancialDocumentParser.interpret(receipt, kind: .receipt)
+        XCTAssertEqual(proposal.merchant, "Example Electronics")
+        XCTAssertEqual(proposal.name, "Noise Cancelling Headphones")
+        XCTAssertEqual(proposal.amount, 79.90)
+    }
+
+    func testSubscriptionPlanNameIsPreferredOverGenericMerchant() {
+        let notice = """
+        Merchant: Apple
+        Plan: iCloud+ 200GB
+        Next renewal: December 20, 2026
+        Total paid: $2.99
+        """
+        let proposal = FinancialDocumentParser.interpret(notice, kind: .subscription)
+        XCTAssertEqual(proposal.merchant, "Apple")
+        XCTAssertEqual(proposal.name, "iCloud+ 200GB")
+        XCTAssertEqual(proposal.amount, 2.99)
+    }
+
+    func testUnclearReceiptDoesNotInventProductName() {
+        let receipt = """
+        RECEIPT
+        Bluebird Store
+        Order number: A83728
+        Grand Total: $14.99
+        """
+        let proposal = FinancialDocumentParser.interpret(receipt, kind: .receipt)
+        XCTAssertEqual(proposal.name, "Purchase")
+        XCTAssertEqual(proposal.amount, 14.99)
+    }
+
+    func testDetectedNameCandidatesCanBeSelectedByUser() {
+        let receipt = """
+        Bluebird Store
+        USB-C Charger
+        USB-C Cable
+        Total $29.99
+        """
+        let proposal = FinancialDocumentParser.interpret(receipt, kind: .receipt)
+        XCTAssertEqual(proposal.name, "USB-C Charger")
+        XCTAssertTrue(proposal.nameCandidates.contains("USB-C Cable"))
     }
 }

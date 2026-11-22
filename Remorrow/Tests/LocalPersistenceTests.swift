@@ -14,6 +14,7 @@ final class LocalPersistenceTests: XCTestCase {
         item.hasConfirmedReturnDeadline = false
         item.receiptNumber = "ORD-2026-02"
         item.purchaseAmount = 59.99
+        item.purchaseCurrencyCode = "EUR"
         item.purchaseDate = Date().addingTimeInterval(-3 * 86400)
         item.warrantyExpiresAt = Date().addingTimeInterval(365 * 86400)
         context.insert(item)
@@ -22,6 +23,7 @@ final class LocalPersistenceTests: XCTestCase {
         XCTAssertEqual(fetched.count, 1)
         XCTAssertEqual(fetched.first?.receiptNumber, "ORD-2026-02")
         XCTAssertEqual(fetched.first?.purchaseAmount, 59.99)
+        XCTAssertEqual(fetched.first?.effectiveCurrencyCode, "EUR")
         XCTAssertFalse(fetched.first?.hasConfirmedReturnDeadline ?? true)
         XCTAssertNotNil(fetched.first?.warrantyExpiresAt)
     }

@@ -367,6 +367,16 @@ struct FinancialCaptureView: View {
             }
             warrantyVerified = false
             confirmedDate = false
+            // Optional Apple Intelligence improves *selection* among genuine
+            // OCR lines. It cannot invent a name or overwrite a user's edit.
+            #if canImport(FoundationModels)
+            if #available(iOS 26.0, *), result.nameCandidates.count > 1,
+               let refinedName = await AppleFinancialNameResolver.suggestedName(
+                   from: text, kind: kind, candidates: result.nameCandidates),
+               name == result.name {
+                name = refinedName
+            }
+            #endif
         } catch {
             self.error = "The document couldn't be scanned. Try a clearer photo."
         }

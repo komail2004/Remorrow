@@ -123,9 +123,15 @@ struct FinancialCaptureView: View {
                                     }
                                     .font(.caption)
                                 }
-                                Text("You can always correct the name before saving.")
-                                    .font(.caption2)
-                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                                if name.isEmpty && !sourceText.isEmpty {
+                                    Label("No reliable name found. Enter the item or service name.", systemImage: "exclamationmark.circle")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.violet)
+                                } else {
+                                    Text("You can always correct the name before saving.")
+                                        .font(.caption2)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
                             }
                             VStack(alignment: .leading, spacing: 6) {
                                 Text("Merchant or service")
@@ -359,14 +365,18 @@ struct FinancialCaptureView: View {
             imageData = data
             sourceText = text
             let result = FinancialDocumentParser.interpret(text, kind: kind)
-            name = result.name
+            // Treat generic OCR fallback titles as missing, not as verified
+            // product names that someone might accidentally save.
+            name = (result.name == "Purchase" || result.name == "Subscription") ? "" : result.name
             nameCandidates = result.nameCandidates
             merchant = result.merchant
             detectedDate = result.date
             evidence = result.dateEvidence
-            if let detectedDate, detectedDate > Date() { date = detectedDate }
-            if let amount = result.amount { self.amount = String(format: "%.2f", amount) }
-            if let currency = result.currencyCode { currencyCode = currency }
+            // Reset stale suggestions when a new image lacks a recognized field.
+            date = (result.date ?? .distantPast) > Date()
+                ? result.date! : Date().addingTimeInterval(24 * 3600)
+            amount = result.amount.map { String(format: "%.2f", $0) } ?? ""
+            currencyCode = result.currencyCode ?? "USD"
             if kind == .receipt {
                 warrantyEvidence = result.warrantyEvidence
                 receiptNumber = result.receiptNumber ?? ""

@@ -114,6 +114,7 @@ struct FinancialCaptureView: View {
                                 TextField(kind == .receipt ? "e.g. Headphones" : "e.g. Music service", text: $name)
                                     .textInputAutocapitalization(.words)
                                     .textFieldStyle(.roundedBorder)
+                                    .accessibilityIdentifier("financialName")
                                 if nameCandidates.count > 1 {
                                     Menu("Choose another detected name") {
                                         ForEach(nameCandidates, id: \.self) { option in
@@ -132,6 +133,7 @@ struct FinancialCaptureView: View {
                                 TextField("Name", text: $merchant)
                                     .textInputAutocapitalization(.words)
                                     .textFieldStyle(.roundedBorder)
+                                    .accessibilityIdentifier("financialMerchant")
                             }
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(kind == .receipt ? "Total paid (optional)" : "Charge amount (optional)")
@@ -139,6 +141,7 @@ struct FinancialCaptureView: View {
                                     TextField("e.g. 12.99", text: $amount)
                                         .keyboardType(.decimalPad)
                                         .textFieldStyle(.roundedBorder)
+                                        .accessibilityIdentifier("financialAmount")
                                 }
                             if kind == .receipt {
                                 VStack(alignment: .leading, spacing: 6) {
@@ -147,6 +150,7 @@ struct FinancialCaptureView: View {
                                         .textInputAutocapitalization(.characters)
                                         .autocorrectionDisabled()
                                         .textFieldStyle(.roundedBorder)
+                                        .accessibilityIdentifier("financialCurrency")
                                 }
                             }
                             if kind == .subscription {
@@ -155,12 +159,14 @@ struct FinancialCaptureView: View {
                                         Text(value).tag(value)
                                     }
                                 }
+                                .accessibilityIdentifier("financialFrequency")
                                 if frequency != "Other" {
                                     Stepper(value: $billingInterval, in: 1...365) {
                                         Text(SubscriptionForecast.cadenceDescription(
                                             frequency: frequency, intervalCount: billingInterval))
                                     }
                                     .accessibilityLabel("Billing interval")
+                                    .accessibilityIdentifier("financialInterval")
                                 } else {
                                     Text("Choose a known cadence for recurring forecasts, or keep this as an unforecasted charge.")
                                         .font(.caption)
@@ -256,6 +262,7 @@ struct FinancialCaptureView: View {
                     ) {
                         save()
                     }
+                    .accessibilityIdentifier("financialSave")
                     .disabled(isScanning || isSaving ||
                               (kind == .receipt ? (trackReturn && !confirmedDate) || (trackWarranty && !warrantyVerified) : !confirmedDate) ||
                               name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||

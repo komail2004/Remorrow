@@ -1,6 +1,6 @@
 name: Remorrow
 options:
-  bundleIdPrefix: com.komail
+  bundleIdPrefix: com.komail2004
   deploymentTarget:
     iOS: "17.0"
 settings:
@@ -28,7 +28,7 @@ targets:
       path: Remorrow/Remorrow.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow
+        PRODUCT_BUNDLE_IDENTIFIER: com.komail2004.remorrow
         GENERATE_INFOPLIST_FILE: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_CFBundleDisplayName: Remorrow
@@ -53,7 +53,7 @@ targets:
       path: RemorrowShareExtension/RemorrowShareExtension.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow.ShareExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.komail2004.remorrow.ShareExtension
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: RemorrowShareExtension/Info.plist
         APPLICATION_EXTENSION_API_ONLY: YES
@@ -71,7 +71,7 @@ targets:
       path: RemorrowTextAction/RemorrowTextAction.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow.TextAction
+        PRODUCT_BUNDLE_IDENTIFIER: com.komail2004.remorrow.TextAction
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: RemorrowTextAction/Info.plist
         APPLICATION_EXTENSION_API_ONLY: YES
@@ -89,7 +89,7 @@ targets:
       path: RemorrowWidget/RemorrowWidget.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.komail.Remorrow.Widget
+        PRODUCT_BUNDLE_IDENTIFIER: com.komail2004.remorrow.Widget
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: RemorrowWidget/Info.plist
         APPLICATION_EXTENSION_API_ONLY: YES
@@ -105,7 +105,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.komail.RemorrowTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.komail2004.remorrowTests
   RemorrowUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -116,7 +116,7 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        PRODUCT_BUNDLE_IDENTIFIER: com.komail.RemorrowUITests
+        PRODUCT_BUNDLE_IDENTIFIER: com.komail2004.remorrowUITests
 schemes:
   Remorrow:
     build:

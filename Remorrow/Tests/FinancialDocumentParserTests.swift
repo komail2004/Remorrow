@@ -123,4 +123,40 @@ final class FinancialDocumentParserTests: XCTestCase {
         XCTAssertEqual(proposal.name, "USB-C Charger")
         XCTAssertTrue(proposal.nameCandidates.contains("USB-C Cable"))
     }
+
+    func testThousandsSeparatorsAndExplicitCurrencies() {
+        let us = FinancialDocumentParser.interpret("""
+            Warehouse Retailer
+            Premium display
+            Grand Total: $1,299.99
+            """, kind: .receipt)
+        XCTAssertEqual(us.amount, 1299.99)
+        XCTAssertNil(us.currencyCode) // Bare '$' is ambiguous internationally.
+
+        let eu = FinancialDocumentParser.interpret("""
+            Atelier Moderne
+            Product: Compact Espresso Machine
+            Total Paid: €1.299,99
+            """, kind: .receipt)
+        XCTAssertEqual(eu.amount, 1299.99)
+        XCTAssertEqual(eu.currencyCode, "EUR")
+
+        let gb = FinancialDocumentParser.interpret("""
+            Service Provider
+            Next renewal: December 20, 2026
+            Amount due: GBP 49.50
+            """, kind: .subscription)
+        XCTAssertEqual(gb.amount, 49.50)
+        XCTAssertEqual(gb.currencyCode, "GBP")
+    }
+
+    func testReceiptHeaderCannotBecomeNameWhenGrandTotalIsLastLine() {
+        let receipt = """
+        RECEIPT
+        Corner Shop
+        Order number: ZX-1919
+        Grand Total $12.95
+        """
+        XCTAssertEqual(FinancialDocumentParser.interpret(receipt, kind: .receipt).name, "Purchase")
+    }
 }

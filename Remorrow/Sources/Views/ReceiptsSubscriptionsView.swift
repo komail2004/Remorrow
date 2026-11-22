@@ -88,7 +88,7 @@ struct ReceiptsSubscriptionsView: View {
                     }
 
                     HStack {
-                        Text(segment == .receipt ? "Your return windows" : "Upcoming charges")
+                        Text(segment == .receipt ? "Your return windows" : "Tracked subscriptions")
                             .font(.system(size: 21, weight: .bold, design: .rounded))
                         Spacer()
                         Button {
@@ -126,6 +126,9 @@ struct ReceiptsSubscriptionsView: View {
                             emptyState("Your subscriptions, organized", subtitle: "Scan a renewal notice or enter the next charge date.", icon: "arrow.triangle.2.circlepath")
                         }
                         ForEach(subscriptions) { item in
+                            let renewal = SubscriptionForecast.upcomingOccurrences(
+                                from: item.nextCharge, frequency: item.frequency,
+                                intervalCount: item.effectiveBillingInterval, count: 1).first
                             Button {
                                 editingSubscription = item
                             } label: {
@@ -134,8 +137,10 @@ struct ReceiptsSubscriptionsView: View {
                                                 $0.formatted(.currency(code: item.effectiveCurrencyCode)) + " · " +
                                                 SubscriptionForecast.cadenceDescription(frequency: item.frequency, intervalCount: item.effectiveBillingInterval)
                                             } ?? SubscriptionForecast.cadenceDescription(frequency: item.frequency, intervalCount: item.effectiveBillingInterval),
-                                            date: item.nextCharge,
-                                            kind: item.isActive ? "Next charge" : "Paused",
+                                            date: renewal?.date ?? item.nextCharge,
+                                            kind: !item.isActive ? "Paused" :
+                                                (renewal?.isProjected == true ? "Projected renewal" :
+                                                 (renewal == nil ? "Last verified charge" : "Next charge")),
                                             attachment: item.attachmentName,
                                             symbol: "arrow.clockwise")
                             }
@@ -184,9 +189,10 @@ struct ReceiptsSubscriptionsView: View {
                         $0.formatted(.currency(code: item.effectiveCurrencyCode)) + " · " +
                         SubscriptionForecast.cadenceDescription(frequency: item.frequency, intervalCount: item.effectiveBillingInterval)
                     },
-                    date: item.nextCharge, dateLabel: "Next charge",
-                    forecastDates: SubscriptionForecast.dates(from: item.nextCharge, frequency: item.frequency,
-                                                              intervalCount: item.effectiveBillingInterval),
+                    date: item.nextCharge, dateLabel: item.nextCharge < .now ? "LAST VERIFIED CHARGE DATE" : "NEXT VERIFIED CHARGE",
+                    forecastDates: SubscriptionForecast.upcomingOccurrences(
+                        from: item.nextCharge, frequency: item.frequency,
+                        intervalCount: item.effectiveBillingInterval).map(\.date),
                     warrantyDate: nil, showPrimaryDate: true,
                     purchaseDate: nil, receiptNumber: nil,
                     source: item.sourceText, imageName: item.attachmentName,
@@ -199,7 +205,8 @@ struct ReceiptsSubscriptionsView: View {
                     },
                     onDelete: { deleteSubscription(item) },
                     kind: .subscription, amountValue: item.amount, frequencyValue: item.frequency,
-                    intervalValue: item.effectiveBillingInterval, currencyValue: item.effectiveCurrencyCode
+                    intervalValue: item.effectiveBillingInterval, currencyValue: item.effectiveCurrencyCode,
+                    forecastFirstIsProjected: item.nextCharge < .now
                 )
             }
             .alert("Remorrow", isPresented: Binding(
@@ -438,6 +445,7 @@ private struct FinancialDetailsView: View {
     var frequencyValue: String = "Monthly"
     var intervalValue: Int = 1
     var currencyValue: String = "USD"
+    var forecastFirstIsProjected = false
     @State private var showDelete = false
     @State private var showEdit = false
 
@@ -500,7 +508,9 @@ private struct FinancialDetailsView: View {
                                 SectionEyebrow(title: "EXPECTED FUTURE CHARGES")
                                 ForEach(Array(forecastDates.enumerated()), id: \.offset) { index, date in
                                     HStack {
-                                        Text(index == 0 ? "Verified next charge" : "Projected · " + String(index))
+                                        Text(index == 0 && !forecastFirstIsProjected
+                                             ? "Verified next charge"
+                                             : "Projected renewal · " + String(index + 1))
                                             .font(.caption.weight(index == 0 ? .semibold : .regular))
                                         Spacer()
                                         Text(date.formatted(date: .abbreviated, time: .omitted))

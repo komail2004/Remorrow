@@ -109,7 +109,7 @@ struct ReceiptsSubscriptionsView: View {
                             } label: {
                                 documentRow(title: item.itemName,
                                             detail: item.purchaseAmount.map {
-                                                (item.merchant.isEmpty ? "Purchase" : item.merchant) + " · " + String(format: "$%.2f", $0)
+                                                (item.merchant.isEmpty ? "Purchase" : item.merchant) + " · " + $0.formatted(.currency(code: item.effectiveCurrencyCode))
                                             } ?? (item.merchant.isEmpty ? "Purchase" : item.merchant),
                                             date: item.hasConfirmedReturnDeadline ? item.deadline :
                                                   (item.warrantyExpiresAt ?? item.createdAt),
@@ -167,7 +167,7 @@ struct ReceiptsSubscriptionsView: View {
                 FinancialDetailsView(
                     name: item.itemName,
                     subtitle: item.merchant,
-                    amountLabel: item.purchaseAmount.map { String(format: "Paid $%.2f", $0) },
+                    amountLabel: item.purchaseAmount.map { "Paid " + $0.formatted(.currency(code: item.effectiveCurrencyCode)) },
                     date: item.deadline, dateLabel: item.hasConfirmedReturnDeadline ? "Return deadline" : "No verified return date",
                     forecastDates: [],
                     warrantyDate: item.warrantyExpiresAt, showPrimaryDate: item.hasConfirmedReturnDeadline,
@@ -175,11 +175,12 @@ struct ReceiptsSubscriptionsView: View {
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
                     onToggle: { toggleReturn(item) },
-                    onUpdate: { name, merchant, date, amount, _, _, _ in
-                        updateReturn(item, name: name, merchant: merchant, date: date, amount: amount)
+                    onUpdate: { name, merchant, date, amount, _, _, currency in
+                        updateReturn(item, name: name, merchant: merchant,
+                                     date: date, amount: amount, currency: currency)
                     },
                     onDelete: { deleteReturn(item) },
-                    kind: .receipt, amountValue: item.purchaseAmount
+                    kind: .receipt, amountValue: item.purchaseAmount, currencyValue: item.effectiveCurrencyCode
                 )
             }
             .sheet(item: $editingSubscription) { item in
@@ -289,6 +290,7 @@ struct ReceiptsSubscriptionsView: View {
             if kind == .receipt {
                 let item = ReturnItem(itemName: name, merchant: merchant, deadline: date)
                 item.purchaseAmount = amount
+                item.purchaseCurrencyCode = currency
                 item.hasConfirmedReturnDeadline = hasReturnDeadline
                 item.warrantyExpiresAt = warrantyDate
                 item.purchaseDate = purchaseDate
@@ -328,11 +330,13 @@ struct ReceiptsSubscriptionsView: View {
         }
     }
 
-    private func updateReturn(_ item: ReturnItem, name: String, merchant: String, date: Date, amount: Double?) {
+    private func updateReturn(_ item: ReturnItem, name: String, merchant: String,
+                              date: Date, amount: Double?, currency: String) {
         item.itemName = name
         item.merchant = merchant
         item.deadline = date
         item.purchaseAmount = amount
+        item.purchaseCurrencyCode = currency
         do {
             try modelContext.save()
             Task {
@@ -626,6 +630,13 @@ private struct FinancialEditSheet: View {
                     TextField(kind == .receipt ? "Total paid (optional)" : "Amount per charge (optional)", text: $amountText)
                         .keyboardType(.decimalPad)
                 }
+                if kind == .receipt {
+                    Section("Currency") {
+                        TextField("Currency (e.g. USD)", text: $currency)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                    }
+                }
                 if kind == .subscription {
                     Section("Billing cycle") {
                         Picker("Frequency", selection: $frequency) {
@@ -665,7 +676,7 @@ private struct FinancialEditSheet: View {
                         )
                         dismiss()
                     }
-                    .disabled(!verified || !amountValid || (kind == .subscription && !currencyValid) ||
+                    .disabled(!verified || !amountValid || !currencyValid ||
                               name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }

@@ -574,7 +574,7 @@ private struct FinancialEditSheet: View {
     @State private var frequency: String
     @State private var interval: Int
     @State private var currency: String
-    @State private var verified = false
+    @State private var verified: Bool
 
     init(kind: FinancialDocumentKind, name: String, merchant: String, date: Date,
          amount: Double?, frequency: String, interval: Int, currency: String,
@@ -588,6 +588,9 @@ private struct FinancialEditSheet: View {
         _frequency = State(initialValue: frequency)
         _interval = State(initialValue: max(1, min(365, interval)))
         _currency = State(initialValue: currency)
+        // Previously saved date was user-confirmed; amount/name edits don't
+        // require verification again unless the date itself changes.
+        _verified = State(initialValue: true)
     }
 
     private var parsedAmount: Double? {
@@ -636,8 +639,9 @@ private struct FinancialEditSheet: View {
                 }
                 Section(kind == .receipt ? "Return deadline" : "Next charge") {
                     DatePicker("Confirmed date", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                        .onChange(of: date) { _, _ in verified = false }
                     Toggle("I've verified this date", isOn: $verified)
-                    Text("Your edits replace scanned suggestions and update the next reminder.")
+                    Text("Changing the date requires confirmation. Editing the amount, name or cycle does not.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

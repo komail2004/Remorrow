@@ -140,6 +140,15 @@ struct FinancialCaptureView: View {
                                         .keyboardType(.decimalPad)
                                         .textFieldStyle(.roundedBorder)
                                 }
+                            if kind == .receipt {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Currency code").font(.caption.weight(.semibold))
+                                    TextField("e.g. USD", text: $currencyCode)
+                                        .textInputAutocapitalization(.characters)
+                                        .autocorrectionDisabled()
+                                        .textFieldStyle(.roundedBorder)
+                                }
+                            }
                             if kind == .subscription {
                                 Picker("Renewal frequency", selection: $frequency) {
                                     ForEach(["Daily", "Weekly", "Monthly", "Yearly", "Other"], id: \.self) { value in
@@ -251,7 +260,7 @@ struct FinancialCaptureView: View {
                               (kind == .receipt ? (trackReturn && !confirmedDate) || (trackWarranty && !warrantyVerified) : !confirmedDate) ||
                               name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                               !amountIsValid ||
-                              (kind == .subscription && !currencyIsValid) ||
+                              !currencyIsValid ||
                               ((kind == .subscription || trackReturn) && date <= Date()))
                     .opacity((kind == .receipt ? (!trackReturn || confirmedDate) && (!trackWarranty || warrantyVerified) : confirmedDate) ? 1 : 0.55)
 
@@ -349,6 +358,7 @@ struct FinancialCaptureView: View {
             evidence = result.dateEvidence
             if let detectedDate, detectedDate > Date() { date = detectedDate }
             if let amount = result.amount { self.amount = String(format: "%.2f", amount) }
+            if let currency = result.currencyCode { currencyCode = currency }
             if kind == .receipt {
                 warrantyEvidence = result.warrantyEvidence
                 receiptNumber = result.receiptNumber ?? ""

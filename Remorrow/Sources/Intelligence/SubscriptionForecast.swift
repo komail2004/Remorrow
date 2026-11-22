@@ -46,7 +46,7 @@ enum SubscriptionForecast {
         case "yearly": singular = "year"
         default: return "Custom / unknown"
         }
-        return "Every \\(interval) \\(singular)s"
+        return "Every \(interval) \(singular)s"
     }
 
     static func monthlyTotalsByCurrency(_ items: [SubscriptionItem]) -> [String: Double] {

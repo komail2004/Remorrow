@@ -373,8 +373,11 @@ struct FinancialCaptureView: View {
             detectedDate = result.date
             evidence = result.dateEvidence
             // Reset stale suggestions when a new image lacks a recognized field.
-            date = (result.date ?? .distantPast) > Date()
-                ? result.date! : Date().addingTimeInterval(24 * 3600)
+            if let suggestedDate = result.date, suggestedDate > Date() {
+                date = suggestedDate
+            } else {
+                date = Date().addingTimeInterval(24 * 3600)
+            }
             amount = result.amount.map { String(format: "%.2f", $0) } ?? ""
             currencyCode = result.currencyCode ?? "USD"
             if kind == .receipt {

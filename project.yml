@@ -29,17 +29,9 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.komail2004.remorrow
-        GENERATE_INFOPLIST_FILE: YES
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Remorrow/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        INFOPLIST_KEY_CFBundleDisplayName: Remorrow
-        INFOPLIST_KEY_CFBundleShortVersionString: "$(MARKETING_VERSION)"
-        INFOPLIST_KEY_CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
-        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "With your permission, Remorrow checks calendar availability and creates or moves events only after you approve."
-        INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "Remorrow saves reminders only after you review and approve them."
-        INFOPLIST_KEY_NSCameraUsageDescription: "Photograph notes, receipts, or renewal notices you choose to review locally."
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Choose a screenshot, receipt, or renewal notice for private on-device reading. Remorrow does not scan your library."
         CODE_SIGN_STYLE: Automatic
         SWIFT_EMIT_LOC_STRINGS: YES
   RemorrowShareExtension:

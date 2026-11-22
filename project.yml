@@ -35,6 +35,7 @@ targets:
         INFOPLIST_KEY_CFBundleShortVersionString: "$(MARKETING_VERSION)"
         INFOPLIST_KEY_CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "With your permission, Remorrow checks calendar availability and creates or moves events only after you approve."
         INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "Remorrow saves reminders only after you review and approve them."
         INFOPLIST_KEY_NSCameraUsageDescription: "Photograph notes, receipts, or renewal notices you choose to review locally."

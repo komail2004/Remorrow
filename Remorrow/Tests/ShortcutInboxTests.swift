@@ -74,6 +74,23 @@ final class ShortcutInboxTests: XCTestCase {
         XCTAssertEqual(next.payload.text, "Earlier")
     }
 
+    func testOversizedShareManifestIsSkippedWithoutHidingValidShares() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RemorrowManifestLimit-" + UUID().uuidString,
+                                    isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try Data(repeating: 0x61, count: 256 * 1024 + 10)
+            .write(to: folder.appendingPathComponent("oversized.json"))
+        let payload = SharedInbox.Payload(
+            id: "valid", type: "text", text: "Study for Friday",
+            imageFile: nil, createdAt: .now)
+        try JSONEncoder().encode(payload).write(
+            to: folder.appendingPathComponent("valid.json"))
+        let loaded = try XCTUnwrap(SharedInbox.loadOldest(in: [folder]))
+        XCTAssertEqual(loaded.payload.text, "Study for Friday")
+    }
+
     func testRejectsSharedImageLargerThanThirtyMegabytes() throws {
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("RemorrowOversize-" + UUID().uuidString,

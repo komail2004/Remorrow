@@ -113,12 +113,16 @@ enum SharedInbox {
         // the import failure without committing any external action.
         let imageData: Data?
         if let imageURL {
-            let attributes = try manager.attributesOfItem(atPath: imageURL.path)
-            if let byteCount = attributes[.size] as? NSNumber,
-               byteCount.int64Value > 30 * 1024 * 1024 {
+            // Read at most the allowed payload plus one byte; this avoids
+            // file-timestamp metadata APIs and prevents a giant shared image
+            // from allocating unbounded memory before validation.
+            let handle = try FileHandle(forReadingFrom: imageURL)
+            defer { try? handle.close() }
+            let bytes = try handle.read(upToCount: 30 * 1024 * 1024 + 1) ?? Data()
+            guard bytes.count <= 30 * 1024 * 1024 else {
                 throw SharedInboxError.invalidPayload
             }
-            imageData = try Data(contentsOf: imageURL)
+            imageData = bytes
         } else {
             imageData = nil
         }

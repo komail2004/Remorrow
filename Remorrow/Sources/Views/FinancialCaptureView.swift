@@ -202,21 +202,28 @@ struct FinancialCaptureView: View {
                                     .foregroundStyle(RemorrowStyle.secondaryText)
                             }
                             Divider()
-                            Text(kind == .receipt ? "LAST ELIGIBLE RETURN DAY" : "NEXT CHARGE DATE")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(RemorrowStyle.secondaryText)
-                            DatePicker("Verified date", selection: $date,
-                                       in: Date()...,
-                                       displayedComponents: [.date, .hourAndMinute])
-                                .tint(RemorrowStyle.violet)
-                            if let evidence {
-                                Text("Possible date found: " + evidence)
-                                    .font(.caption)
-                                    .foregroundStyle(RemorrowStyle.violet)
+                            if kind == .subscription || trackReturn {
+                                Text(kind == .receipt ? "LAST ELIGIBLE RETURN DAY" : "NEXT CHARGE DATE")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                                DatePicker("Verified date", selection: $date,
+                                           in: Date()...,
+                                           displayedComponents: [.date, .hourAndMinute])
+                                    .tint(RemorrowStyle.violet)
+                                    .onChange(of: date) { _, _ in confirmedDate = false }
+                                if let evidence {
+                                    Text("Possible date found: " + evidence)
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.violet)
+                                } else {
+                                    Text(kind == .receipt
+                                         ? "A purchase date is not the return deadline. Check the store's policy or receipt."
+                                         : "A payment date may not be the next renewal date. Check your subscription terms.")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
                             } else {
-                                Text(kind == .receipt
-                                     ? "A purchase date is not the return deadline. Check the store's policy or receipt."
-                                     : "A payment date may not be the next renewal date. Check your subscription terms.")
+                                Text("No return deadline found. You can save the receipt now and add a verified return date later.")
                                     .font(.caption)
                                     .foregroundStyle(RemorrowStyle.secondaryText)
                             }
@@ -235,6 +242,9 @@ struct FinancialCaptureView: View {
                                 Divider()
                                 Toggle("Track a return deadline", isOn: $trackReturn)
                                     .tint(RemorrowStyle.violet)
+                                    .onChange(of: trackReturn) { _, enabled in
+                                        if enabled { confirmedDate = false }
+                                    }
                                 if trackReturn {
                                     Toggle("I verified the last return date", isOn: $confirmedDate)
                                         .tint(RemorrowStyle.violet)

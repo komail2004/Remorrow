@@ -58,4 +58,41 @@ final class ExplicitTimeParserTests: XCTestCase {
         XCTAssertEqual(calendar.component(.day, from: result), 9)
         XCTAssertEqual(calendar.component(.hour, from: result), 19)
     }
+
+    func testSevenPMStaysSevenPMOnSpringForwardDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 3,
+                                                      day: 8, hour: 10, minute: 0))!
+        let result = ExplicitTimeParser.suggestedPickerDate(
+            hour: 19, minute: 0, now: now, calendar: calendar)
+        XCTAssertEqual(calendar.component(.day, from: result), 8)
+        XCTAssertEqual(calendar.component(.hour, from: result), 19)
+        XCTAssertEqual(calendar.component(.minute, from: result), 0)
+    }
+
+    func testSevenPMStaysSevenPMOnFallBackDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        let now = calendar.date(from: DateComponents(year: 2026, month: 11,
+                                                      day: 1, hour: 10, minute: 0))!
+        let result = ExplicitTimeParser.suggestedPickerDate(
+            hour: 19, minute: 30, now: now, calendar: calendar)
+        XCTAssertEqual(calendar.component(.day, from: result), 1)
+        XCTAssertEqual(calendar.component(.hour, from: result), 19)
+        XCTAssertEqual(calendar.component(.minute, from: result), 30)
+    }
+
+    func testAllTimesAreReturnedInSourceOrder() {
+        let times = ExplicitTimeParser.all(in: "Moved from 6pm to 19:30, or noon")
+        XCTAssertEqual(times.map(\.hour), [18, 19, 12])
+        XCTAssertEqual(times.map(\.minute), [0, 30, 0])
+    }
+
+    func testDotSeparatedMeridiemTime() {
+        let time = ExplicitTimeParser.parse(in: "Dinner tomorrow at 7.30pm")
+        XCTAssertEqual(time?.hour, 19)
+        XCTAssertEqual(time?.minute, 30)
+        XCTAssertEqual(time?.evidence.lowercased(), "7.30pm")
+    }
 }

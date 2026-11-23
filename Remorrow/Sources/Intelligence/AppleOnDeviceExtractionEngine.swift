@@ -49,8 +49,12 @@ struct AppleOnDeviceExtractionEngine: ExtractionEngine {
         var merged: [ActionProposal] = []
         for action in actions.prefix(12) {
             let quote = action.excerpt.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard quote.count >= 6, input.text.contains(quote),
-                  action.title.count >= 4, action.title.count <= 100 else { continue }
+            guard quote.count >= 6, input.text.contains(quote) else { continue }
+            // Model-written titles can invent facts even if the quote is real.
+            // Generate the saved title from the verbatim excerpt instead;
+            // the model may classify, but it cannot add an unsupported name.
+            let groundedTitle = SmartTitleGenerator.title(from: quote)
+            guard groundedTitle != "Review this reminder" else { continue }
             let kind: ProposedActionKind = action.kind == "calendarEvent" ? .calendarEvent : .reminder
             let detected = baseline.first {
                 quote.localizedCaseInsensitiveContains($0.sourceEvidence) ||
@@ -59,7 +63,7 @@ struct AppleOnDeviceExtractionEngine: ExtractionEngine {
             let flags = (detected?.uncertaintyFlags ?? ["missingDate"]) + [
                 "confirmDate", "confirmResponsibility", "confirmActionType"
             ]
-            merged.append(ActionProposal(kind: kind, title: action.title,
+            merged.append(ActionProposal(kind: kind, title: groundedTitle,
                                          sourceEvidence: quote,
                                          proposedDate: detected?.proposedDate,
                                          suggestedHour: detected?.suggestedHour,

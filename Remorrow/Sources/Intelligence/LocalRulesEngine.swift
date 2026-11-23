@@ -184,10 +184,17 @@ struct LocalRulesEngine: ExtractionEngine {
         // A verified time without a calendar day still deserves a suggestion.
         // The day remains nil; Review requires explicit date confirmation.
         if !mentionsDate(text) {
-            if let time = ExplicitTimeParser.parse(in: text) {
-                results.append(DateCandidate(date: nil, evidence: time.evidence,
-                                             flags: ["missingDate"],
-                                             hour: time.hour, minute: time.minute))
+            let times = ExplicitTimeParser.all(in: text)
+            let time = extractTime(from: text)
+            if !times.isEmpty, let hour = time.hour, let minute = time.minute {
+                let evidence = times.last(where: {
+                    $0.hour == hour && $0.minute == minute
+                })?.evidence ?? times[0].evidence
+                var flags = ["missingDate"]
+                if time.ambiguous { flags.append("confirmTime") }
+                results.append(DateCandidate(date: nil, evidence: evidence,
+                                             flags: flags,
+                                             hour: hour, minute: minute))
             }
             return results
         }
@@ -216,6 +223,7 @@ struct LocalRulesEngine: ExtractionEngine {
                                              minute: specifiedTime.minute ?? 0,
                                              second: 0,
                                              of: detectedDate) ?? detectedDate
+                if specifiedTime.ambiguous { flags.append("confirmTime") }
             } else {
                 proposedDate = detectedDate
                 if specifiedTime.ambiguous || !evidence.matches(#"(?i)\b(?:am|pm)\b"#) {
@@ -230,8 +238,26 @@ struct LocalRulesEngine: ExtractionEngine {
         return results
     }
 
+    /// Multiple times are never silently treated as unambiguous. In a
+    /// reschedule choose the last stated time provisionally, then confirm it.
+    private static let timeChangeCues = ["moved", "rescheduled", "changed", "postponed",
+                                         "instead", "pushed", "actually"]
+
     private static func extractTime(from text: String) -> (hour: Int?, minute: Int?, ambiguous: Bool) {
-        if let explicit = ExplicitTimeParser.parse(in: text) {
+        let allTimes = ExplicitTimeParser.all(in: text)
+        var distinct: [ExplicitClockTime] = []
+        for time in allTimes where !distinct.contains(where: {
+            $0.hour == time.hour && $0.minute == time.minute
+        }) {
+            distinct.append(time)
+        }
+        if distinct.count > 1 {
+            let lower = text.lowercased()
+            let replacement = timeChangeCues.contains { lower.contains($0) }
+            let chosen = (replacement ? allTimes.last : allTimes.first) ?? distinct[0]
+            return (chosen.hour, chosen.minute, true)
+        }
+        if let explicit = allTimes.first {
             return (explicit.hour, explicit.minute, false)
         }
         // "at 7" still needs AM/PM clarification.

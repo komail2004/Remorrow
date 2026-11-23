@@ -118,4 +118,65 @@ final class LocalRulesEngineTests: XCTestCase {
         let result = try await LocalRulesEngine().extract(from: input)
         XCTAssertTrue(result.isEmpty)
     }
+
+    func testRescheduledTimeUsesDestinationAndRequiresConfirmation() async throws {
+        let input = ExtractionInput(text: "Dinner with Alex moved from 6pm to 7pm tomorrow",
+                                    capturedAt: .now, localeIdentifier: "en_US",
+                                    timeZoneIdentifier: "America/New_York")
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
+        XCTAssertEqual(first.suggestedHour, 19)
+        XCTAssertTrue(first.uncertaintyFlags.contains("confirmTime"))
+        if let date = first.proposedDate {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "America/New_York")!
+            XCTAssertEqual(calendar.component(.hour, from: date), 19)
+        }
+    }
+
+    func testRescheduledWeekdayAndTimeSelectDestination() async throws {
+        let input = ExtractionInput(text: "Team meeting Thursday 3pm moved to Friday 4pm",
+                                    capturedAt: .now, localeIdentifier: "en_US",
+                                    timeZoneIdentifier: "America/New_York")
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
+        XCTAssertEqual(first.suggestedHour, 16)
+        XCTAssertTrue(first.uncertaintyFlags.contains("confirmTime"))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        XCTAssertEqual(calendar.component(.weekday, from: try XCTUnwrap(first.proposedDate)), 6)
+    }
+
+    func testTimeRangeUsesStartAndRequiresConfirmation() async throws {
+        let input = ExtractionInput(text: "Meeting on December 12, 2026 from 9am to 5pm",
+                                    capturedAt: .now, localeIdentifier: "en_US",
+                                    timeZoneIdentifier: "America/New_York")
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
+        XCTAssertEqual(first.suggestedHour, 9)
+        XCTAssertTrue(first.uncertaintyFlags.contains("confirmTime"))
+    }
+
+    func testRepeatedSameTimeDoesNotRequireTimeConfirmation() async throws {
+        let input = ExtractionInput(
+            text: "Dinner with Alex on December 12, 2026 at 7 PM, see you at 7pm",
+            capturedAt: .now, localeIdentifier: "en_US",
+            timeZoneIdentifier: "America/New_York")
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
+        XCTAssertEqual(first.suggestedHour, 19)
+        XCTAssertFalse(first.uncertaintyFlags.contains("confirmTime"))
+    }
+
+    func testNoDateMultipleTimesStillRequiresConfirmation() async throws {
+        let input = ExtractionInput(text: "Dinner moved from 6pm to 7pm",
+                                    capturedAt: .now, localeIdentifier: "en_US",
+                                    timeZoneIdentifier: "America/New_York")
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
+        XCTAssertEqual(first.suggestedHour, 19)
+        XCTAssertNil(first.proposedDate)
+        XCTAssertTrue(first.uncertaintyFlags.contains("confirmTime"))
+        XCTAssertTrue(first.uncertaintyFlags.contains("missingDate"))
+    }
 }

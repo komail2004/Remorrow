@@ -73,4 +73,24 @@ final class ShortcutInboxTests: XCTestCase {
         let next = try XCTUnwrap(SharedInbox.loadOldest(in: [folder]))
         XCTAssertEqual(next.payload.text, "Earlier")
     }
+
+    func testRejectsSharedImageLargerThanThirtyMegabytes() throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RemorrowOversize-" + UUID().uuidString,
+                                    isDirectory: true)
+        try FileManager.default.createDirectory(at: folder,
+                                                withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let filename = "photo.bin"
+        let imageURL = folder.appendingPathComponent(filename)
+        FileManager.default.createFile(atPath: imageURL.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: imageURL)
+        try handle.truncate(atOffset: UInt64(30 * 1024 * 1024 + 1))
+        try handle.close()
+        let payload = SharedInbox.Payload(id: "too-large", type: "image",
+            text: nil, imageFile: filename, createdAt: .now)
+        try JSONEncoder().encode(payload).write(to:
+            folder.appendingPathComponent("too-large.json"))
+        XCTAssertThrowsError(try SharedInbox.loadOldest(in: [folder]))
+    }
 }

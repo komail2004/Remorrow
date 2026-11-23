@@ -7,8 +7,8 @@ Evidence labels: **[EXECUTED]** run and verified · **[STATIC]** code/config ins
 ## 1. Exact source baseline and release branch
 
 - The audited baseline was `main` commit `005e8e501571de513d27626d2b9ecb8d2c27ea06`.
-- Claude's patch was delivered as `da3f7e2`; its fixes have been reviewed and integrated into this independent branch: `release/claude-audit-fixes-2026-11-23`.
-- Confirm the actual final commit and latest GitHub Actions run before promoting this branch to `main`.
+- The fixes were squash-merged into `main` by PR #12 as commit `6f23b1933c5c38fc0e3f3077d33e36353720be54` after passing CI.
+- Claude's patch was delivered as `da3f7e2`; its fixes and additional safeguards were integrated through `release/claude-audit-fixes-2026-11-23` and PR #12.
 
 ## 2–4. Environment and test scope
 
@@ -19,20 +19,22 @@ Evidence labels: **[EXECUTED]** run and verified · **[STATIC]** code/config ins
 ## 5. Test results
 
 - Previous merged baseline CI: **125 unit tests and 9 UI tests passed** on `8ebd78c` in GitHub run `45082895527` **[EXECUTED CI]**.
-- New regression tests cover: spring and autumn DST, all explicit times, `7.30pm`, reschedule destinations, time ranges, duplicate time mentions, missing dates with two times, and bounded shared image import.
-- **New branch CI results:** PENDING; record exact run URL and totals before merge. A clean compile by itself is not a passing test suite.
+- New regression tests cover spring and autumn DST, all explicit times, `7.30pm`, reschedule destinations, time ranges, duplicate time mentions, missing dates with two times, and bounded shared image import.
+- **[EXECUTED CI]**: [PR #12 run 45096806814](https://github.com/komail2004/Remorrow/actions/runs/45096806814) passed **135 unit tests + 9 UI tests, 0 failures**; simulator Debug build, unsigned iPhoneOS Release build and embedded app/extension metadata validation all passed.
+- **[EXECUTED CI]**: [documentation validation 45096806843](https://github.com/komail2004/Remorrow/actions/runs/45096806843) passed.
+- The simulator emitted a CoreData recovery diagnostic and the Release build emitted an App Intents training-data parsing diagnostic despite both jobs passing; confirm no related runtime issue on an actual device.
 
 ## 6. Critical user journeys and defects
 
 ### D1 — P1 — Reschedules previously selected the OLD time
-**Fix in validation branch [STATIC, testing pending]:**
+**Fix in merged code [EXECUTED CI]:**
 - Use `ExplicitTimeParser.all(in:)` to recognize multiple distinct clock times.
 - Prefer the last explicit time for an apparent reschedule; keep the first for ordinary time ranges.
 - Mark multi-time proposals `confirmTime` and require an explicit user verification toggle before saving **or updating** a plan in Review.
 - Apply to relative dates, absolute dates and no-date proposals.
 
 ### D2 — P1 — DST shifted requested local time
-**Fix [STATIC, testing pending]:** `suggestedPickerDate` uses `Calendar.date(bySettingHour:minute:second:of:)` rather than elapsed hours from midnight. Added DST regression cases.
+**Fix [EXECUTED CI]:** `suggestedPickerDate` uses `Calendar.date(bySettingHour:minute:second:of:)` rather than elapsed hours from midnight. Added DST regression cases.
 
 ### D3 — POTENTIAL P0 — Historical Build 1 Bundle ID differs from repository source
 **Mitigation [STATIC]:** The signed release script now refuses export unless `APPSTORE_CONNECT_BUNDLE_ID` explicitly equals the actual existing app identifier `com.komail2004.remorrow`; all three extension IDs and build versions and the shared App Group are checked. This does not verify what was actually installed by Build 1. **Owner must still check App Store Connect › App Information and perform an in-place upgrade.**
@@ -81,12 +83,12 @@ Review now exposes an accessibility identifier for explicit time verification. F
 
 | Finding | Severity | Status |
 |---|---|---|
-| D1 reschedule/multiple times | P1 | Fixed in code; new CI pending |
-| D2 DST picker offset | P1 | Fixed in code; new CI pending |
+| D1 reschedule/multiple times | P1 | Fixed; 135 unit + 9 UI CI green; hardware QA pending |
+| D2 DST picker offset | P1 | Fixed; regression tests passed; hardware QA pending |
 | D3 Build 1 actual Bundle ID continuity | Potential P0 | Guard added; owner verification needed |
 | Time `7.30pm` | P3 | Parser and regression test added |
 | Unverified model-generated event title | P3 | Replaced with source-grounded title |
-| SharedInbox file-timestamp API / huge-image handling | P2 | Changed to bounded reads; tests pending |
+| SharedInbox file-timestamp API / huge-image handling | P2 | Bounded reads; oversized-image regression passed |
 | Rolling subscription alerts | P2 | System-limited; foreground refresh available; device tests needed |
 | Export compliance declaration | P3 | Boolean declared; owner must verify eligibility |
 | Public privacy/support URLs | Release blocker | Owner must provide/publish |
@@ -97,9 +99,9 @@ Review now exposes an accessibility identifier for explicit time verification. F
 
 - Claude-supplied `PRODUCTION-CERTIFICATION.md` and `0001-fix-time-prefer-rescheduled-time-confirm-multi-time-.patch` were reviewed as input.
 - Prior green CI: https://github.com/komail2004/Remorrow/actions/runs/45082895527.
-- Latest validation branch PR / CI: add resulting links after opening the PR.
+- Merged [PR #12](https://github.com/komail2004/Remorrow/pull/12) and its passing [CI run](https://github.com/komail2004/Remorrow/actions/runs/45096806814).
 - Signed archive: none. Do not claim production certification from unsigned CI results.
 
 ## 19. Release GO / NO-GO
 
-**NO-GO** for public App Store submission until all the following are independently verified: latest commit's full iOS CI, real Build 1/2 Bundle ID continuity, an actual in-place device migration, a signed archive plus App Store Connect validation, real-device functional QA, and active privacy/support URLs. Merging a passing code branch is an engineering milestone, not permission to submit an unverified binary.
+**NO-GO** for public App Store submission until all the following are independently verified: merged-commit iOS CI, real Build 1/2 Bundle ID continuity, an actual in-place device migration, a signed archive plus App Store Connect validation, real-device functional QA, and active privacy/support URLs. Merging a passing code branch is an engineering milestone, not permission to submit an unverified binary.

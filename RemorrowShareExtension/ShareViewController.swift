@@ -98,6 +98,16 @@ final class ShareViewController: UIViewController {
     }
 
     private func store(type: String, text: String?, image: Data?) {
+        // Keep the extension's payload limits aligned with the main app's
+        // shared inbox. Oversize shares should fail visibly, not fill storage.
+        if let text, text.count > 20_000 {
+            show("Shared text is too long. Select a shorter passage.", success: false)
+            return
+        }
+        if let image, image.count > 30 * 1024 * 1024 {
+            show("This image is too large. Choose a smaller screenshot or photo.", success: false)
+            return
+        }
         do {
             guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.komail.Remorrow") else {
                 throw NSError(domain: "RemorrowShare", code: 1)

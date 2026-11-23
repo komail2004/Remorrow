@@ -116,12 +116,19 @@ final class ShareViewController: UIViewController {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let id = UUID().uuidString
             let imageFile = image == nil ? nil : id + ".image"
-            if let image, let imageFile {
-                try image.write(to: folder.appendingPathComponent(imageFile), options: .atomic)
+            let imageURL = imageFile.map { folder.appendingPathComponent($0) }
+            if let image, let imageURL {
+                try image.write(to: imageURL, options: .atomic)
             }
-            let payload = SharePayload(id: id, type: type, text: text, imageFile: imageFile, createdAt: Date())
-            let data = try JSONEncoder().encode(payload)
-            try data.write(to: folder.appendingPathComponent(id + ".json"), options: .atomic)
+            do {
+                let payload = SharePayload(id: id, type: type, text: text, imageFile: imageFile, createdAt: Date())
+                let data = try JSONEncoder().encode(payload)
+                try data.write(to: folder.appendingPathComponent(id + ".json"), options: .atomic)
+            } catch {
+                // A partial share must not leave an orphaned photo on disk.
+                if let imageURL { try? FileManager.default.removeItem(at: imageURL) }
+                throw error
+            }
             show("Saved for review. Open Remorrow to make your reminder.", success: true)
         } catch {
             show("Couldn't save the share. Check Remorrow's App Group capability.", success: false)

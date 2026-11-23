@@ -138,8 +138,8 @@ final class LocalRulesEngineTests: XCTestCase {
         let input = ExtractionInput(text: "Team meeting Thursday 3pm moved to Friday 4pm",
                                     capturedAt: .now, localeIdentifier: "en_US",
                                     timeZoneIdentifier: "America/New_York")
-        let first = try XCTUnwrap(
-            try await LocalRulesEngine().extract(from: input).first)
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
         XCTAssertEqual(first.suggestedHour, 16)
         XCTAssertTrue(first.uncertaintyFlags.contains("confirmTime"))
         var calendar = Calendar(identifier: .gregorian)
@@ -151,8 +151,8 @@ final class LocalRulesEngineTests: XCTestCase {
         let input = ExtractionInput(text: "Meeting on December 12, 2026 from 9am to 5pm",
                                     capturedAt: .now, localeIdentifier: "en_US",
                                     timeZoneIdentifier: "America/New_York")
-        let first = try XCTUnwrap(
-            try await LocalRulesEngine().extract(from: input).first)
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
         XCTAssertEqual(first.suggestedHour, 9)
         XCTAssertTrue(first.uncertaintyFlags.contains("confirmTime"))
     }
@@ -162,8 +162,8 @@ final class LocalRulesEngineTests: XCTestCase {
             text: "Dinner with Alex on December 12, 2026 at 7 PM, see you at 7pm",
             capturedAt: .now, localeIdentifier: "en_US",
             timeZoneIdentifier: "America/New_York")
-        let first = try XCTUnwrap(
-            try await LocalRulesEngine().extract(from: input).first)
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
         XCTAssertEqual(first.suggestedHour, 19)
         XCTAssertFalse(first.uncertaintyFlags.contains("confirmTime"))
     }
@@ -172,8 +172,8 @@ final class LocalRulesEngineTests: XCTestCase {
         let input = ExtractionInput(text: "Dinner moved from 6pm to 7pm",
                                     capturedAt: .now, localeIdentifier: "en_US",
                                     timeZoneIdentifier: "America/New_York")
-        let first = try XCTUnwrap(
-            try await LocalRulesEngine().extract(from: input).first)
+        let proposals = try await LocalRulesEngine().extract(from: input)
+        let first = try XCTUnwrap(proposals.first)
         XCTAssertEqual(first.suggestedHour, 19)
         XCTAssertNil(first.proposedDate)
         XCTAssertTrue(first.uncertaintyFlags.contains("confirmTime"))

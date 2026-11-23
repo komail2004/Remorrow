@@ -17,7 +17,9 @@ struct FinancialCaptureView: View {
     @State private var merchant = ""
     @State private var date = Date().addingTimeInterval(24 * 60 * 60)
     @State private var confirmedDate = false
-    @State private var trackReturn = true
+    // A receipt does not prove a store's return policy. Do not enable alerts
+    // unless a deadline is explicitly recognized or the user turns it on.
+    @State private var trackReturn = false
     @State private var trackWarranty = false
     @State private var warrantyDate = Date().addingTimeInterval(365 * 86400)
     @State private var warrantyVerified = false
@@ -93,6 +95,15 @@ struct FinancialCaptureView: View {
                                     confirmedDate = false
                                     warrantyVerified = false
                                     warrantyEvidence = nil
+                                    name = ""
+                                    merchant = ""
+                                    amount = ""
+                                    currencyCode = "USD"
+                                    date = Date().addingTimeInterval(24 * 3600)
+                                    trackReturn = false
+                                    trackWarranty = false
+                                    hasPurchaseDate = false
+                                    receiptNumber = ""
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.title2)
@@ -191,21 +202,28 @@ struct FinancialCaptureView: View {
                                     .foregroundStyle(RemorrowStyle.secondaryText)
                             }
                             Divider()
-                            Text(kind == .receipt ? "LAST ELIGIBLE RETURN DAY" : "NEXT CHARGE DATE")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(RemorrowStyle.secondaryText)
-                            DatePicker("Verified date", selection: $date,
-                                       in: Date()...,
-                                       displayedComponents: [.date, .hourAndMinute])
-                                .tint(RemorrowStyle.violet)
-                            if let evidence {
-                                Text("Possible date found: " + evidence)
-                                    .font(.caption)
-                                    .foregroundStyle(RemorrowStyle.violet)
+                            if kind == .subscription || trackReturn {
+                                Text(kind == .receipt ? "LAST ELIGIBLE RETURN DAY" : "NEXT CHARGE DATE")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(RemorrowStyle.secondaryText)
+                                DatePicker("Verified date", selection: $date,
+                                           in: Date()...,
+                                           displayedComponents: [.date, .hourAndMinute])
+                                    .tint(RemorrowStyle.violet)
+                                    .onChange(of: date) { _, _ in confirmedDate = false }
+                                if let evidence {
+                                    Text("Possible date found: " + evidence)
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.violet)
+                                } else {
+                                    Text(kind == .receipt
+                                         ? "A purchase date is not the return deadline. Check the store's policy or receipt."
+                                         : "A payment date may not be the next renewal date. Check your subscription terms.")
+                                        .font(.caption)
+                                        .foregroundStyle(RemorrowStyle.secondaryText)
+                                }
                             } else {
-                                Text(kind == .receipt
-                                     ? "A purchase date is not the return deadline. Check the store's policy or receipt."
-                                     : "A payment date may not be the next renewal date. Check your subscription terms.")
+                                Text("No return deadline found. You can save the receipt now and add a verified return date later.")
                                     .font(.caption)
                                     .foregroundStyle(RemorrowStyle.secondaryText)
                             }
@@ -224,6 +242,9 @@ struct FinancialCaptureView: View {
                                 Divider()
                                 Toggle("Track a return deadline", isOn: $trackReturn)
                                     .tint(RemorrowStyle.violet)
+                                    .onChange(of: trackReturn) { _, enabled in
+                                        if enabled { confirmedDate = false }
+                                    }
                                 if trackReturn {
                                     Toggle("I verified the last return date", isOn: $confirmedDate)
                                         .tint(RemorrowStyle.violet)
@@ -381,6 +402,7 @@ struct FinancialCaptureView: View {
             amount = result.amount.map { String(format: "%.2f", $0) } ?? ""
             currencyCode = result.currencyCode ?? "USD"
             if kind == .receipt {
+                trackReturn = result.date.map { $0 > Date() } ?? false
                 warrantyEvidence = result.warrantyEvidence
                 receiptNumber = result.receiptNumber ?? ""
                 if let detectedPurchase = result.purchaseDate {

@@ -28,6 +28,36 @@ final class LocalPersistenceTests: XCTestCase {
         XCTAssertNotNil(fetched.first?.warrantyExpiresAt)
     }
 
+    func testSavedReceiptCanAcquireVerifiedReturnAndWarrantyLater() throws {
+        let schema = Schema([SavedAction.self, ReturnItem.self, SubscriptionItem.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        let context = container.mainContext
+        let item = ReturnItem(itemName: "Desk lamp", merchant: "Home Store",
+                              deadline: Date().addingTimeInterval(86400))
+        item.hasConfirmedReturnDeadline = false
+        context.insert(item)
+        try context.save()
+        XCTAssertFalse(item.hasConfirmedReturnDeadline)
+
+        let confirmedDeadline = Date().addingTimeInterval(12 * 86400)
+        item.deadline = confirmedDeadline
+        item.hasConfirmedReturnDeadline = true
+        item.purchaseAmount = 42.50
+        item.purchaseCurrencyCode = "EUR"
+        item.warrantyExpiresAt = Date().addingTimeInterval(365 * 86400)
+        item.receiptNumber = "LAMP-142"
+        try context.save()
+
+        let saved = try XCTUnwrap(context.fetch(FetchDescriptor<ReturnItem>()).first)
+        XCTAssertTrue(saved.hasConfirmedReturnDeadline)
+        XCTAssertEqual(saved.deadline, confirmedDeadline)
+        XCTAssertEqual(saved.purchaseAmount, 42.50)
+        XCTAssertEqual(saved.effectiveCurrencyCode, "EUR")
+        XCTAssertEqual(saved.receiptNumber, "LAMP-142")
+        XCTAssertNotNil(saved.warrantyExpiresAt)
+    }
+
     func testSavedPlanAndRenewalCanCoexistInOneContainer() throws {
         let schema = Schema([SavedAction.self, ReturnItem.self, SubscriptionItem.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)

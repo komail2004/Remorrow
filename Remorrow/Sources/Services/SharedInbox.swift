@@ -83,7 +83,12 @@ enum SharedInbox {
                 // Manifests contain the author's timestamp. Reading that is
                 // more reliable than filesystem creation dates (and avoids
                 // platform file-timestamp metadata permissions).
-                guard let data = try? Data(contentsOf: file),
+                // Shared content originates in other apps. Bound manifest size
+                // before decoding to prevent unbounded JSON allocations.
+                guard let handle = try? FileHandle(forReadingFrom: file) else { continue }
+                let data = try? handle.read(upToCount: 256 * 1024 + 1)
+                try? handle.close()
+                guard let data, data.count <= 256 * 1024,
                       let payload = try? JSONDecoder().decode(Payload.self, from: data)
                 else { continue }
                 queue.append((url: file, payload: payload))

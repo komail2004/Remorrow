@@ -122,6 +122,10 @@ final class TextActionViewController: UIViewController {
             statusLabel.text = "Choose some text before saving."
             return
         }
+        guard text.count <= 20_000 else {
+            statusLabel.text = "The selection is too long. Choose 20,000 characters or fewer."
+            return
+        }
         isSaving = true
         saveButton.isEnabled = false
         do {

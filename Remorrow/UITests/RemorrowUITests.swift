@@ -53,6 +53,19 @@ final class RemorrowUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["financialInterval"].exists)
     }
 
+    func testReceiptDoesNotAssumeAnUnstatedReturnDeadline() {
+        let app = launch()
+        skipGuide(app)
+        app.tabBars.buttons["Receipts"].tap()
+        app.buttons["Scan receipt"].tap()
+        let tracking = app.switches["Track a return deadline"]
+        XCTAssertTrue(tracking.waitForExistence(timeout: 10))
+        XCTAssertEqual(tracking.value as? String, "0")
+        XCTAssertTrue(app.staticTexts[
+            "No return deadline found. You can save the receipt now and add a verified return date later."
+        ].exists)
+    }
+
     func testReceiptCaptureDoesNotRequireAnImageToEditDetails() {
         let app = launch()
         skipGuide(app)

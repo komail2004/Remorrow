@@ -175,12 +175,11 @@ struct ReceiptsSubscriptionsView: View {
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
                     onToggle: { toggleReturn(item) },
-                    onUpdate: { name, merchant, date, amount, _, _, currency in
-                        updateReturn(item, name: name, merchant: merchant,
-                                     date: date, amount: amount, currency: currency)
-                    },
+                    onUpdate: { changes in updateReturn(item, changes: changes) },
                     onDelete: { deleteReturn(item) },
-                    kind: .receipt, amountValue: item.purchaseAmount, currencyValue: item.effectiveCurrencyCode
+                    kind: .receipt, amountValue: item.purchaseAmount,
+                    currencyValue: item.effectiveCurrencyCode,
+                    hasReturnDeadline: item.hasConfirmedReturnDeadline
                 )
             }
             .sheet(item: $editingSubscription) { item in
@@ -199,11 +198,7 @@ struct ReceiptsSubscriptionsView: View {
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: !item.isActive, inactiveLabel: "Paused",
                     onToggle: { toggleSubscription(item) },
-                    onUpdate: { name, merchant, date, amount, frequency, interval, currency in
-                        updateSubscription(item, name: name, merchant: merchant,
-                                           date: date, amount: amount, frequency: frequency,
-                                           interval: interval, currency: currency)
-                    },
+                    onUpdate: { changes in updateSubscription(item, changes: changes) },
                     onDelete: { deleteSubscription(item) },
                     kind: .subscription, amountValue: item.amount, frequencyValue: item.frequency,
                     intervalValue: item.effectiveBillingInterval, currencyValue: item.effectiveCurrencyCode,
@@ -325,18 +320,28 @@ struct ReceiptsSubscriptionsView: View {
                 }
             }
         } catch {
+            // A failed SwiftData save can leave an inserted object pending in the
+            // context. Roll it back before deleting the attachment so a later
+            // unrelated save cannot persist a record pointing to a missing image.
+            modelContext.rollback()
             CaptureMediaStore.remove(named: filename)
             throw error
         }
     }
 
-    private func updateReturn(_ item: ReturnItem, name: String, merchant: String,
-                              date: Date, amount: Double?, currency: String) {
-        item.itemName = name
-        item.merchant = merchant
-        item.deadline = date
-        item.purchaseAmount = amount
-        item.purchaseCurrencyCode = currency
+    /// A saved receipt without a return policy can be upgraded to a verified
+    /// return reminder later. All edits persist before scheduling changes.
+    @discardableResult
+    private func updateReturn(_ item: ReturnItem, changes: FinancialEditValues) -> Bool {
+        item.itemName = changes.name
+        item.merchant = changes.merchant
+        item.deadline = changes.date
+        item.purchaseAmount = changes.amount
+        item.purchaseCurrencyCode = changes.currency
+        item.hasConfirmedReturnDeadline = changes.trackReturn
+        item.warrantyExpiresAt = changes.warrantyDate
+        item.purchaseDate = changes.purchaseDate
+        item.receiptNumber = changes.receiptNumber
         do {
             try modelContext.save()
             Task {
@@ -344,29 +349,32 @@ struct ReceiptsSubscriptionsView: View {
                 _ = try? await returnAlerts.scheduleWarranty(item)
             }
             message = "Receipt updated."
+            return true
         } catch {
             modelContext.rollback()
             message = "Couldn't update this receipt."
+            return false
         }
     }
 
-    private func updateSubscription(_ item: SubscriptionItem, name: String, merchant: String,
-                                    date: Date, amount: Double?, frequency: String,
-                                    interval: Int, currency: String) {
-        item.name = name
-        item.merchant = merchant
-        item.nextCharge = date
-        item.amount = amount
-        item.frequency = frequency
-        item.billingInterval = max(1, min(365, interval))
-        item.currencyCode = currency.uppercased()
+    @discardableResult
+    private func updateSubscription(_ item: SubscriptionItem, changes: FinancialEditValues) -> Bool {
+        item.name = changes.name
+        item.merchant = changes.merchant
+        item.nextCharge = changes.date
+        item.amount = changes.amount
+        item.frequency = changes.frequency
+        item.billingInterval = max(1, min(365, changes.interval))
+        item.currencyCode = changes.currency
         do {
             try modelContext.save()
             Task { _ = try? await renewalAlerts.schedule(item) }
             message = "Subscription updated."
+            return true
         } catch {
             modelContext.rollback()
             message = "Couldn't update this subscription."
+            return false
         }
     }
 
@@ -425,6 +433,21 @@ struct ReceiptsSubscriptionsView: View {
     }
 }
 
+/// One validated edit snapshot, shared by receipt and subscription workflows.
+private struct FinancialEditValues {
+    let name: String
+    let merchant: String
+    let date: Date
+    let amount: Double?
+    let frequency: String
+    let interval: Int
+    let currency: String
+    let trackReturn: Bool
+    let warrantyDate: Date?
+    let purchaseDate: Date?
+    let receiptNumber: String?
+}
+
 private struct FinancialDetailsView: View {
     @Environment(\.dismiss) private var dismiss
     let name: String
@@ -442,13 +465,14 @@ private struct FinancialDetailsView: View {
     let inactive: Bool
     let inactiveLabel: String
     let onToggle: () -> Void
-    let onUpdate: (String, String, Date, Double?, String, Int, String) -> Void
+    let onUpdate: (FinancialEditValues) -> Bool
     let onDelete: () -> Void
     var kind: FinancialDocumentKind = .receipt
     var amountValue: Double? = nil
     var frequencyValue: String = "Monthly"
     var intervalValue: Int = 1
     var currencyValue: String = "USD"
+    var hasReturnDeadline = true
     var forecastFirstIsProjected = false
     @State private var showDelete = false
     @State private var showEdit = false
@@ -560,10 +584,15 @@ private struct FinancialDetailsView: View {
             .sheet(isPresented: $showEdit) {
                 FinancialEditSheet(kind: kind, name: name, merchant: subtitle, date: date,
                                    amount: amountValue, frequency: frequencyValue,
-                                   interval: intervalValue, currency: currencyValue) {
-                    name, merchant, date, amount, frequency, interval, currency in
-                    onUpdate(name, merchant, date, amount, frequency, interval, currency)
-                    dismiss()
+                                   interval: intervalValue, currency: currencyValue,
+                                   hasReturnDeadline: hasReturnDeadline, warrantyDate: warrantyDate,
+                                   purchaseDate: purchaseDate, receiptNumber: receiptNumber) {
+                    changes in
+                    if onUpdate(changes) {
+                        dismiss()
+                        return true
+                    }
+                    return false
                 }
             }
             .confirmationDialog("Delete this item?", isPresented: $showDelete) {
@@ -580,7 +609,8 @@ private struct FinancialDetailsView: View {
 private struct FinancialEditSheet: View {
     @Environment(\.dismiss) private var dismiss
     let kind: FinancialDocumentKind
-    let onSave: (String, String, Date, Double?, String, Int, String) -> Void
+    let onSave: (FinancialEditValues) -> Bool
+
     @State private var name: String
     @State private var merchant: String
     @State private var date: Date
@@ -589,10 +619,20 @@ private struct FinancialEditSheet: View {
     @State private var interval: Int
     @State private var currency: String
     @State private var verified: Bool
+    @State private var trackReturn: Bool
+    @State private var trackWarranty: Bool
+    @State private var warrantyDate: Date
+    @State private var warrantyVerified: Bool
+    @State private var hasPurchaseDate: Bool
+    @State private var purchaseDate: Date
+    @State private var receiptNumber: String
+    @State private var saveFailed = false
 
     init(kind: FinancialDocumentKind, name: String, merchant: String, date: Date,
          amount: Double?, frequency: String, interval: Int, currency: String,
-         onSave: @escaping (String, String, Date, Double?, String, Int, String) -> Void) {
+         hasReturnDeadline: Bool, warrantyDate: Date?, purchaseDate: Date?,
+         receiptNumber: String?,
+         onSave: @escaping (FinancialEditValues) -> Bool) {
         self.kind = kind
         self.onSave = onSave
         _name = State(initialValue: name)
@@ -602,9 +642,14 @@ private struct FinancialEditSheet: View {
         _frequency = State(initialValue: frequency)
         _interval = State(initialValue: max(1, min(365, interval)))
         _currency = State(initialValue: currency)
-        // Previously saved date was user-confirmed; amount/name edits don't
-        // require verification again unless the date itself changes.
-        _verified = State(initialValue: true)
+        _verified = State(initialValue: kind == .subscription || hasReturnDeadline)
+        _trackReturn = State(initialValue: hasReturnDeadline)
+        _trackWarranty = State(initialValue: warrantyDate != nil)
+        _warrantyDate = State(initialValue: warrantyDate ?? Date().addingTimeInterval(365 * 86400))
+        _warrantyVerified = State(initialValue: warrantyDate != nil)
+        _hasPurchaseDate = State(initialValue: purchaseDate != nil)
+        _purchaseDate = State(initialValue: purchaseDate ?? .now)
+        _receiptNumber = State(initialValue: receiptNumber ?? "")
     }
 
     private var parsedAmount: Double? {
@@ -612,13 +657,23 @@ private struct FinancialEditSheet: View {
         guard !text.isEmpty else { return nil }
         return Double(text.replacingOccurrences(of: ",", with: "."))
     }
+
     private var amountValid: Bool {
         amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
         (parsedAmount.map { $0.isFinite && $0 >= 0 } ?? false)
     }
+
     private var currencyValid: Bool {
-        currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-            .range(of: #"^[A-Z]{3}$"#, options: .regularExpression) != nil
+        let code = currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return code.range(of: #"^[A-Z]{3}$"#, options: .regularExpression) != nil
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        amountValid && currencyValid &&
+        (kind != .subscription || verified) &&
+        (kind != .receipt || !trackReturn || verified) &&
+        (kind != .receipt || !trackWarranty || warrantyVerified)
     }
 
     var body: some View {
@@ -626,18 +681,60 @@ private struct FinancialEditSheet: View {
             Form {
                 Section("Details") {
                     TextField(kind == .receipt ? "Item name" : "Service name", text: $name)
+                        .accessibilityIdentifier("editFinancialName")
                     TextField("Merchant", text: $merchant)
-                    TextField(kind == .receipt ? "Total paid (optional)" : "Amount per charge (optional)", text: $amountText)
+                    TextField(kind == .receipt ? "Total paid (optional)" : "Amount per charge (optional)",
+                              text: $amountText)
                         .keyboardType(.decimalPad)
+                        .accessibilityIdentifier("editFinancialAmount")
+                    TextField("Currency (e.g. USD)", text: $currency)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .accessibilityIdentifier("editFinancialCurrency")
                 }
+
                 if kind == .receipt {
-                    Section("Currency") {
-                        TextField("Currency (e.g. USD)", text: $currency)
-                            .textInputAutocapitalization(.characters)
-                            .autocorrectionDisabled()
+                    Section("Return tracking") {
+                        Toggle("Track a return deadline", isOn: $trackReturn)
+                            .accessibilityIdentifier("editTrackReturn")
+                            .onChange(of: trackReturn) { _, enabled in
+                                if enabled { verified = false }
+                            }
+                        if trackReturn {
+                            DatePicker("Return deadline", selection: $date,
+                                       displayedComponents: [.date, .hourAndMinute])
+                                .onChange(of: date) { _, _ in verified = false }
+                            Toggle("I verified the return deadline", isOn: $verified)
+                                .accessibilityIdentifier("editVerifiedReturn")
+                        } else {
+                            Text("No return date will be assumed or scheduled. You can add a verified date later.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                }
-                if kind == .subscription {
+
+                    Section("Purchase details") {
+                        TextField("Receipt or order number (optional)", text: $receiptNumber)
+                        Toggle("Record purchase date", isOn: $hasPurchaseDate)
+                        if hasPurchaseDate {
+                            DatePicker("Purchase date", selection: $purchaseDate,
+                                       displayedComponents: .date)
+                        }
+                    }
+
+                    Section("Warranty coverage") {
+                        Toggle("Track warranty expiry", isOn: $trackWarranty)
+                            .onChange(of: trackWarranty) { _, enabled in
+                                if enabled { warrantyVerified = false }
+                            }
+                        if trackWarranty {
+                            DatePicker("Warranty expires", selection: $warrantyDate,
+                                       displayedComponents: .date)
+                                .onChange(of: warrantyDate) { _, _ in warrantyVerified = false }
+                            Toggle("I verified the warranty expiry", isOn: $warrantyVerified)
+                        }
+                    }
+                } else {
                     Section("Billing cycle") {
                         Picker("Frequency", selection: $frequency) {
                             ForEach(["Daily", "Weekly", "Monthly", "Yearly", "Other"], id: \.self) {
@@ -649,40 +746,59 @@ private struct FinancialEditSheet: View {
                                 Text(SubscriptionForecast.cadenceDescription(
                                     frequency: frequency, intervalCount: interval))
                             }
+                            .accessibilityIdentifier("editBillingInterval")
+                        } else {
+                            Text("Unknown cadence: no future renewal dates will be invented.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        TextField("Currency (e.g. USD)", text: $currency)
-                            .textInputAutocapitalization(.characters)
-                            .autocorrectionDisabled()
-                        Text("This is the amount each billing cycle, not a monthly estimate.")
+                        Text("The amount is per billing cycle, not an estimated monthly charge.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                }
-                Section(kind == .receipt ? "Return deadline" : "Next charge") {
-                    DatePicker("Confirmed date", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                        .onChange(of: date) { _, _ in verified = false }
-                    Toggle("I've verified this date", isOn: $verified)
-                    Text("Changing the date requires confirmation. Editing the amount, name or cycle does not.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Section {
-                    Button("Save changes") {
-                        onSave(
-                            name.trimmingCharacters(in: .whitespacesAndNewlines),
-                            merchant.trimmingCharacters(in: .whitespacesAndNewlines),
-                            date, parsedAmount, frequency, interval,
-                            currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-                        )
-                        dismiss()
+                    Section("Next charge") {
+                        DatePicker("Confirmed next charge", selection: $date,
+                                   displayedComponents: [.date, .hourAndMinute])
+                            .onChange(of: date) { _, _ in verified = false }
+                        Toggle("I verified the charge date", isOn: $verified)
                     }
-                    .disabled(!verified || !amountValid || !currencyValid ||
-                              name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                Section {
+                    if saveFailed {
+                        Text("Couldn't save your changes. They are still here for review.")
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                    }
+                    Button("Save changes") {
+                        let changes = FinancialEditValues(
+                            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            merchant: merchant.trimmingCharacters(in: .whitespacesAndNewlines),
+                            date: date, amount: parsedAmount, frequency: frequency,
+                            interval: interval,
+                            currency: currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased(),
+                            trackReturn: kind == .receipt && trackReturn,
+                            warrantyDate: kind == .receipt && trackWarranty ? warrantyDate : nil,
+                            purchaseDate: kind == .receipt && hasPurchaseDate ? purchaseDate : nil,
+                            receiptNumber: kind == .receipt && !receiptNumber.isEmpty
+                                ? receiptNumber.trimmingCharacters(in: .whitespacesAndNewlines) : nil)
+                        if onSave(changes) {
+                            dismiss()
+                        } else {
+                            saveFailed = true
+                        }
+                    }
+                    .disabled(!canSave)
+                    .accessibilityIdentifier("editFinancialSave")
                 }
             }
             .navigationTitle("Edit details")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
         }
     }
 }

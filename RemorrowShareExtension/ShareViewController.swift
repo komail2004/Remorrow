@@ -98,6 +98,16 @@ final class ShareViewController: UIViewController {
     }
 
     private func store(type: String, text: String?, image: Data?) {
+        // Keep the extension's payload limits aligned with the main app's
+        // shared inbox. Oversize shares should fail visibly, not fill storage.
+        if let text, text.count > 20_000 {
+            show("Shared text is too long. Select a shorter passage.", success: false)
+            return
+        }
+        if let image, image.count > 30 * 1024 * 1024 {
+            show("This image is too large. Choose a smaller screenshot or photo.", success: false)
+            return
+        }
         do {
             guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.komail.Remorrow") else {
                 throw NSError(domain: "RemorrowShare", code: 1)
@@ -106,12 +116,19 @@ final class ShareViewController: UIViewController {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             let id = UUID().uuidString
             let imageFile = image == nil ? nil : id + ".image"
-            if let image, let imageFile {
-                try image.write(to: folder.appendingPathComponent(imageFile), options: .atomic)
+            let imageURL = imageFile.map { folder.appendingPathComponent($0) }
+            if let image, let imageURL {
+                try image.write(to: imageURL, options: .atomic)
             }
-            let payload = SharePayload(id: id, type: type, text: text, imageFile: imageFile, createdAt: Date())
-            let data = try JSONEncoder().encode(payload)
-            try data.write(to: folder.appendingPathComponent(id + ".json"), options: .atomic)
+            do {
+                let payload = SharePayload(id: id, type: type, text: text, imageFile: imageFile, createdAt: Date())
+                let data = try JSONEncoder().encode(payload)
+                try data.write(to: folder.appendingPathComponent(id + ".json"), options: .atomic)
+            } catch {
+                // A partial share must not leave an orphaned photo on disk.
+                if let imageURL { try? FileManager.default.removeItem(at: imageURL) }
+                throw error
+            }
             show("Saved for review. Open Remorrow to make your reminder.", success: true)
         } catch {
             show("Couldn't save the share. Check Remorrow's App Group capability.", success: false)

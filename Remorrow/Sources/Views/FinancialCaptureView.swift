@@ -17,7 +17,9 @@ struct FinancialCaptureView: View {
     @State private var merchant = ""
     @State private var date = Date().addingTimeInterval(24 * 60 * 60)
     @State private var confirmedDate = false
-    @State private var trackReturn = true
+    // A receipt does not prove a store's return policy. Do not enable alerts
+    // unless a deadline is explicitly recognized or the user turns it on.
+    @State private var trackReturn = false
     @State private var trackWarranty = false
     @State private var warrantyDate = Date().addingTimeInterval(365 * 86400)
     @State private var warrantyVerified = false
@@ -93,6 +95,15 @@ struct FinancialCaptureView: View {
                                     confirmedDate = false
                                     warrantyVerified = false
                                     warrantyEvidence = nil
+                                    name = ""
+                                    merchant = ""
+                                    amount = ""
+                                    currencyCode = "USD"
+                                    date = Date().addingTimeInterval(24 * 3600)
+                                    trackReturn = false
+                                    trackWarranty = false
+                                    hasPurchaseDate = false
+                                    receiptNumber = ""
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.title2)
@@ -381,6 +392,7 @@ struct FinancialCaptureView: View {
             amount = result.amount.map { String(format: "%.2f", $0) } ?? ""
             currencyCode = result.currencyCode ?? "USD"
             if kind == .receipt {
+                trackReturn = result.date.map { $0 > Date() } ?? false
                 warrantyEvidence = result.warrantyEvidence
                 receiptNumber = result.receiptNumber ?? ""
                 if let detectedPurchase = result.purchaseDate {

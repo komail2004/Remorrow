@@ -9,6 +9,11 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 2
 fi
 : "${APPLE_TEAM_ID:?Set APPLE_TEAM_ID to the actual 10-character Apple Developer team ID. Do not commit credentials.}"
+: "${APPSTORE_CONNECT_BUNDLE_ID:?First inspect your existing TestFlight app in App Store Connect > App Information and set APPSTORE_CONNECT_BUNDLE_ID to that exact bundle ID.}"
+if [[ "$APPSTORE_CONNECT_BUNDLE_ID" != "com.komail2004.remorrow" ]]; then
+  echo "STOP: Existing App Store Connect bundle ID differs from this build. An in-place upgrade would be unsafe." >&2
+  exit 2
+fi
 if [[ ! "$APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
   echo "APPLE_TEAM_ID must be the real 10-character Apple Developer team ID." >&2
   exit 2
@@ -48,8 +53,31 @@ build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Info.plist")"
 }
 codesign --verify --deep --strict --verbose=2 "$app"
 for ext in RemorrowWidget RemorrowShareExtension RemorrowTextAction; do
-  test -d "$app/PlugIns/$ext.appex"
-  codesign --verify --strict --verbose=2 "$app/PlugIns/$ext.appex"
+  extension="$app/PlugIns/$ext.appex"
+  test -d "$extension"
+  codesign --verify --strict --verbose=2 "$extension"
+  ext_bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$extension/Info.plist")"
+  ext_build="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$extension/Info.plist")"
+  case "$ext" in
+    RemorrowWidget) expected_id="com.komail2004.remorrow.Widget" ;;
+    RemorrowShareExtension) expected_id="com.komail2004.remorrow.ShareExtension" ;;
+    RemorrowTextAction) expected_id="com.komail2004.remorrow.TextAction" ;;
+  esac
+  [[ "$ext_bundle_id" == "$expected_id" && "$ext_build" == "$build" ]] || {
+    echo "STOP: $ext has unexpected identity/version: $ext_bundle_id ($ext_build)" >&2
+    exit 1
+  }
+done
+# Confirm every source target retains the existing shared container identifier.
+for plist in Remorrow/Remorrow.entitlements \
+             RemorrowWidget/RemorrowWidget.entitlements \
+             RemorrowShareExtension/RemorrowShareExtension.entitlements \
+             RemorrowTextAction/RemorrowTextAction.entitlements; do
+  /usr/libexec/PlistBuddy -c 'Print :com.apple.security.application-groups:0' "$plist" |
+    grep -qx 'group.com.komail.Remorrow' || {
+      echo "STOP: unexpected App Group in $plist" >&2
+      exit 1
+    }
 done
 
 cat > "$options" <<PLIST

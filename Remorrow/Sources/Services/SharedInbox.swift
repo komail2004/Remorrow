@@ -118,8 +118,15 @@ enum SharedInbox {
             // from allocating unbounded memory before validation.
             let handle = try FileHandle(forReadingFrom: imageURL)
             defer { try? handle.close() }
-            let bytes = try handle.read(upToCount: 30 * 1024 * 1024 + 1) ?? Data()
-            guard bytes.count <= 30 * 1024 * 1024 else {
+            let limit = 30 * 1024 * 1024
+            var bytes = Data()
+            while bytes.count <= limit {
+                let request = min(1024 * 1024, limit + 1 - bytes.count)
+                guard let chunk = try handle.read(upToCount: request),
+                      !chunk.isEmpty else { break }
+                bytes.append(chunk)
+            }
+            guard bytes.count <= limit else {
                 throw SharedInboxError.invalidPayload
             }
             imageData = bytes

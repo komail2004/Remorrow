@@ -20,6 +20,7 @@ struct ReviewView: View {
     @State private var resolvingConflict: PlanConflict?
     @State private var checkedCalendarSlot: Date?
     @State private var hasVerifiedMissingDate = false
+    @State private var hasVerifiedAmbiguousTime = false
 
     init(
         proposal: ActionProposal,
@@ -138,6 +139,11 @@ struct ReviewView: View {
                                 DatePicker("Date and time", selection: $dueDate)
                                     .datePickerStyle(.graphical)
                                     .tint(RemorrowStyle.violet)
+                                    .onChange(of: dueDate) { _, _ in
+                                        if proposal.uncertaintyFlags.contains("confirmTime") {
+                                            hasVerifiedAmbiguousTime = false
+                                        }
+                                    }
                                 if proposal.proposedDate == nil {
                                     VStack(alignment: .leading, spacing: 9) {
                                         if let recognizedClockLabel {
@@ -155,6 +161,19 @@ struct ReviewView: View {
                                             .font(.subheadline.weight(.semibold))
                                             .tint(RemorrowStyle.violet)
                                             .accessibilityIdentifier("confirmMissingDate")
+                                    }
+                                    .padding(12)
+                                    .background(RemorrowStyle.blueTint.opacity(0.48),
+                                                in: RoundedRectangle(cornerRadius: 13))
+                                }
+                                if proposal.uncertaintyFlags.contains("confirmTime") {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("This message mentions multiple or unclear times. Confirm the intended time before saving.")
+                                            .font(.caption)
+                                            .foregroundStyle(RemorrowStyle.secondaryText)
+                                        Toggle("I verified the time", isOn: $hasVerifiedAmbiguousTime)
+                                            .tint(RemorrowStyle.violet)
+                                            .accessibilityIdentifier("confirmAmbiguousTime")
                                     }
                                     .padding(12)
                                     .background(RemorrowStyle.blueTint.opacity(0.48),
@@ -256,6 +275,7 @@ struct ReviewView: View {
                                 .tint(RemorrowStyle.violet)
                                 .disabled(isSaving ||
                                           (proposal.proposedDate == nil && !hasVerifiedMissingDate) ||
+                                          (proposal.uncertaintyFlags.contains("confirmTime") && !hasVerifiedAmbiguousTime) ||
                                           title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                                           kind.rawValue != target.kind)
                             }
@@ -311,7 +331,8 @@ struct ReviewView: View {
                         }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                              (proposal.proposedDate == nil && !hasVerifiedMissingDate))
+                              (proposal.proposedDate == nil && !hasVerifiedMissingDate) ||
+                              (proposal.uncertaintyFlags.contains("confirmTime") && !hasVerifiedAmbiguousTime))
 
                     Button("Skip this suggestion") { onSkip() }
                         .font(.subheadline.weight(.semibold))
@@ -418,7 +439,9 @@ struct ReviewView: View {
 
     private func saveNew(allowConflict: Bool) {
         guard !isSaving &&
-              (proposal.proposedDate != nil || hasVerifiedMissingDate) else { return }
+              (proposal.proposedDate != nil || hasVerifiedMissingDate) &&
+              (!proposal.uncertaintyFlags.contains("confirmTime") ||
+               hasVerifiedAmbiguousTime) else { return }
         isSaving = true
         Task {
             defer { isSaving = false }

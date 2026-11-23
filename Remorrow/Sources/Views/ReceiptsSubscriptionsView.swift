@@ -68,8 +68,16 @@ struct ReceiptsSubscriptionsView: View {
                     if segment == .subscription && !subscriptions.isEmpty {
                         VStack(alignment: .leading, spacing: 7) {
                             SectionEyebrow(title: "PROJECTED MONTHLY SPEND")
-                            Text(String(format: "$%.2f", SubscriptionForecast.estimatedMonthlyTotal(subscriptions)))
-                                .font(.system(size: 31, weight: .bold, design: .rounded))
+                            let totals = SubscriptionForecast.monthlyTotalsByCurrency(subscriptions)
+                            if totals.isEmpty {
+                                Text("Add a charge amount and known cadence")
+                                    .font(.subheadline.weight(.semibold))
+                            } else {
+                                ForEach(totals.keys.sorted(), id: \.self) { currency in
+                                    Text((totals[currency] ?? 0).formatted(.currency(code: currency)))
+                                        .font(.system(size: 31, weight: .bold, design: .rounded))
+                                }
+                            }
                             Text("Estimate from the amount and cadence you entered—not actual bank charges.")
                                 .font(.caption)
                                 .foregroundStyle(RemorrowStyle.secondaryText)
@@ -80,7 +88,7 @@ struct ReceiptsSubscriptionsView: View {
                     }
 
                     HStack {
-                        Text(segment == .receipt ? "Your return windows" : "Upcoming charges")
+                        Text(segment == .receipt ? "Your return windows" : "Tracked subscriptions")
                             .font(.system(size: 21, weight: .bold, design: .rounded))
                         Spacer()
                         Button {
@@ -101,7 +109,7 @@ struct ReceiptsSubscriptionsView: View {
                             } label: {
                                 documentRow(title: item.itemName,
                                             detail: item.purchaseAmount.map {
-                                                (item.merchant.isEmpty ? "Purchase" : item.merchant) + " · " + String(format: "$%.2f", $0)
+                                                (item.merchant.isEmpty ? "Purchase" : item.merchant) + " · " + $0.formatted(.currency(code: item.effectiveCurrencyCode))
                                             } ?? (item.merchant.isEmpty ? "Purchase" : item.merchant),
                                             date: item.hasConfirmedReturnDeadline ? item.deadline :
                                                   (item.warrantyExpiresAt ?? item.createdAt),
@@ -118,13 +126,21 @@ struct ReceiptsSubscriptionsView: View {
                             emptyState("Your subscriptions, organized", subtitle: "Scan a renewal notice or enter the next charge date.", icon: "arrow.triangle.2.circlepath")
                         }
                         ForEach(subscriptions) { item in
+                            let renewal = SubscriptionForecast.upcomingOccurrences(
+                                from: item.nextCharge, frequency: item.frequency,
+                                intervalCount: item.effectiveBillingInterval, count: 1).first
                             Button {
                                 editingSubscription = item
                             } label: {
                                 documentRow(title: item.name,
-                                            detail: item.amount.map { String(format: "$%.2f · %@", $0, item.frequency) } ?? item.frequency,
-                                            date: item.nextCharge,
-                                            kind: item.isActive ? "Next charge" : "Paused",
+                                            detail: item.amount.map {
+                                                $0.formatted(.currency(code: item.effectiveCurrencyCode)) + " · " +
+                                                SubscriptionForecast.cadenceDescription(frequency: item.frequency, intervalCount: item.effectiveBillingInterval)
+                                            } ?? SubscriptionForecast.cadenceDescription(frequency: item.frequency, intervalCount: item.effectiveBillingInterval),
+                                            date: renewal?.date ?? item.nextCharge,
+                                            kind: !item.isActive ? "Paused" :
+                                                (renewal?.isProjected == true ? "Projected renewal" :
+                                                 (renewal == nil ? "Last verified charge" : "Next charge")),
                                             attachment: item.attachmentName,
                                             symbol: "arrow.clockwise")
                             }
@@ -139,9 +155,9 @@ struct ReceiptsSubscriptionsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $creating) { kind in
-                FinancialCaptureView(kind: kind) { kind, name, merchant, date, amount, frequency, source, image, hasReturnDeadline, warrantyDate, purchaseDate, receiptNumber in
+                FinancialCaptureView(kind: kind) { kind, name, merchant, date, amount, frequency, interval, currency, source, image, hasReturnDeadline, warrantyDate, purchaseDate, receiptNumber in
                     try await create(kind: kind, name: name, merchant: merchant,
-                                     date: date, amount: amount, frequency: frequency,
+                                     date: date, amount: amount, frequency: frequency, interval: interval, currency: currency,
                                      source: source, image: image,
                                      hasReturnDeadline: hasReturnDeadline, warrantyDate: warrantyDate,
                                      purchaseDate: purchaseDate, receiptNumber: receiptNumber)
@@ -151,7 +167,7 @@ struct ReceiptsSubscriptionsView: View {
                 FinancialDetailsView(
                     name: item.itemName,
                     subtitle: item.merchant,
-                    amountLabel: item.purchaseAmount.map { String(format: "Paid $%.2f", $0) },
+                    amountLabel: item.purchaseAmount.map { "Paid " + $0.formatted(.currency(code: item.effectiveCurrencyCode)) },
                     date: item.deadline, dateLabel: item.hasConfirmedReturnDeadline ? "Return deadline" : "No verified return date",
                     forecastDates: [],
                     warrantyDate: item.warrantyExpiresAt, showPrimaryDate: item.hasConfirmedReturnDeadline,
@@ -159,23 +175,39 @@ struct ReceiptsSubscriptionsView: View {
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: item.isReturned, inactiveLabel: "Returned",
                     onToggle: { toggleReturn(item) },
-                    onUpdate: { name, merchant, date in updateReturn(item, name: name, merchant: merchant, date: date) },
-                    onDelete: { deleteReturn(item) }
+                    onUpdate: { name, merchant, date, amount, _, _, currency in
+                        updateReturn(item, name: name, merchant: merchant,
+                                     date: date, amount: amount, currency: currency)
+                    },
+                    onDelete: { deleteReturn(item) },
+                    kind: .receipt, amountValue: item.purchaseAmount, currencyValue: item.effectiveCurrencyCode
                 )
             }
             .sheet(item: $editingSubscription) { item in
                 FinancialDetailsView(
                     name: item.name, subtitle: item.merchant,
-                    amountLabel: item.amount.map { String(format: "$%.2f · %@", $0, item.frequency) },
-                    date: item.nextCharge, dateLabel: "Next charge",
-                    forecastDates: SubscriptionForecast.dates(from: item.nextCharge, frequency: item.frequency),
+                    amountLabel: item.amount.map {
+                        $0.formatted(.currency(code: item.effectiveCurrencyCode)) + " · " +
+                        SubscriptionForecast.cadenceDescription(frequency: item.frequency, intervalCount: item.effectiveBillingInterval)
+                    },
+                    date: item.nextCharge, dateLabel: item.nextCharge < .now ? "LAST VERIFIED CHARGE DATE" : "NEXT VERIFIED CHARGE",
+                    forecastDates: SubscriptionForecast.upcomingOccurrences(
+                        from: item.nextCharge, frequency: item.frequency,
+                        intervalCount: item.effectiveBillingInterval).map(\.date),
                     warrantyDate: nil, showPrimaryDate: true,
                     purchaseDate: nil, receiptNumber: nil,
                     source: item.sourceText, imageName: item.attachmentName,
                     inactive: !item.isActive, inactiveLabel: "Paused",
                     onToggle: { toggleSubscription(item) },
-                    onUpdate: { name, merchant, date in updateSubscription(item, name: name, merchant: merchant, date: date) },
-                    onDelete: { deleteSubscription(item) }
+                    onUpdate: { name, merchant, date, amount, frequency, interval, currency in
+                        updateSubscription(item, name: name, merchant: merchant,
+                                           date: date, amount: amount, frequency: frequency,
+                                           interval: interval, currency: currency)
+                    },
+                    onDelete: { deleteSubscription(item) },
+                    kind: .subscription, amountValue: item.amount, frequencyValue: item.frequency,
+                    intervalValue: item.effectiveBillingInterval, currencyValue: item.effectiveCurrencyCode,
+                    forecastFirstIsProjected: item.nextCharge < .now
                 )
             }
             .alert("Remorrow", isPresented: Binding(
@@ -249,7 +281,7 @@ struct ReceiptsSubscriptionsView: View {
     @MainActor
     private func create(kind: FinancialDocumentKind, name: String, merchant: String,
                         date: Date, amount: Double?, frequency: String,
-                        source: String, image: Data?,
+                        interval: Int, currency: String, source: String, image: Data?,
                         hasReturnDeadline: Bool, warrantyDate: Date?,
                         purchaseDate: Date?, receiptNumber: String?) async throws {
         // Make attachment before inserting the model. Nothing is created on OCR alone.
@@ -258,6 +290,7 @@ struct ReceiptsSubscriptionsView: View {
             if kind == .receipt {
                 let item = ReturnItem(itemName: name, merchant: merchant, deadline: date)
                 item.purchaseAmount = amount
+                item.purchaseCurrencyCode = currency
                 item.hasConfirmedReturnDeadline = hasReturnDeadline
                 item.warrantyExpiresAt = warrantyDate
                 item.purchaseDate = purchaseDate
@@ -278,6 +311,7 @@ struct ReceiptsSubscriptionsView: View {
             } else {
                 let item = SubscriptionItem(name: name, merchant: merchant, nextCharge: date,
                                             amount: amount, frequency: frequency,
+                                            billingInterval: interval, currencyCode: currency,
                                             sourceText: source.isEmpty ? nil : source,
                                             attachmentName: filename)
                 modelContext.insert(item)
@@ -296,10 +330,13 @@ struct ReceiptsSubscriptionsView: View {
         }
     }
 
-    private func updateReturn(_ item: ReturnItem, name: String, merchant: String, date: Date) {
+    private func updateReturn(_ item: ReturnItem, name: String, merchant: String,
+                              date: Date, amount: Double?, currency: String) {
         item.itemName = name
         item.merchant = merchant
         item.deadline = date
+        item.purchaseAmount = amount
+        item.purchaseCurrencyCode = currency
         do {
             try modelContext.save()
             Task {
@@ -313,10 +350,16 @@ struct ReceiptsSubscriptionsView: View {
         }
     }
 
-    private func updateSubscription(_ item: SubscriptionItem, name: String, merchant: String, date: Date) {
+    private func updateSubscription(_ item: SubscriptionItem, name: String, merchant: String,
+                                    date: Date, amount: Double?, frequency: String,
+                                    interval: Int, currency: String) {
         item.name = name
         item.merchant = merchant
         item.nextCharge = date
+        item.amount = amount
+        item.frequency = frequency
+        item.billingInterval = max(1, min(365, interval))
+        item.currencyCode = currency.uppercased()
         do {
             try modelContext.save()
             Task { _ = try? await renewalAlerts.schedule(item) }
@@ -399,8 +442,14 @@ private struct FinancialDetailsView: View {
     let inactive: Bool
     let inactiveLabel: String
     let onToggle: () -> Void
-    let onUpdate: (String, String, Date) -> Void
+    let onUpdate: (String, String, Date, Double?, String, Int, String) -> Void
     let onDelete: () -> Void
+    var kind: FinancialDocumentKind = .receipt
+    var amountValue: Double? = nil
+    var frequencyValue: String = "Monthly"
+    var intervalValue: Int = 1
+    var currencyValue: String = "USD"
+    var forecastFirstIsProjected = false
     @State private var showDelete = false
     @State private var showEdit = false
 
@@ -463,7 +512,9 @@ private struct FinancialDetailsView: View {
                                 SectionEyebrow(title: "EXPECTED FUTURE CHARGES")
                                 ForEach(Array(forecastDates.enumerated()), id: \.offset) { index, date in
                                     HStack {
-                                        Text(index == 0 ? "Verified next charge" : "Projected · " + String(index))
+                                        Text(index == 0 && !forecastFirstIsProjected
+                                             ? "Verified next charge"
+                                             : "Projected renewal · " + String(index + 1))
                                             .font(.caption.weight(index == 0 ? .semibold : .regular))
                                         Spacer()
                                         Text(date.formatted(date: .abbreviated, time: .omitted))
@@ -507,8 +558,11 @@ private struct FinancialDetailsView: View {
                 ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
             }
             .sheet(isPresented: $showEdit) {
-                FinancialEditSheet(name: name, merchant: subtitle, date: date) { name, merchant, date in
-                    onUpdate(name, merchant, date)
+                FinancialEditSheet(kind: kind, name: name, merchant: subtitle, date: date,
+                                   amount: amountValue, frequency: frequencyValue,
+                                   interval: intervalValue, currency: currencyValue) {
+                    name, merchant, date, amount, frequency, interval, currency in
+                    onUpdate(name, merchant, date, amount, frequency, interval, currency)
                     dismiss()
                 }
             }
@@ -525,40 +579,105 @@ private struct FinancialDetailsView: View {
 
 private struct FinancialEditSheet: View {
     @Environment(\.dismiss) private var dismiss
-    let onSave: (String, String, Date) -> Void
+    let kind: FinancialDocumentKind
+    let onSave: (String, String, Date, Double?, String, Int, String) -> Void
     @State private var name: String
     @State private var merchant: String
     @State private var date: Date
-    @State private var verified = false
+    @State private var amountText: String
+    @State private var frequency: String
+    @State private var interval: Int
+    @State private var currency: String
+    @State private var verified: Bool
 
-    init(name: String, merchant: String, date: Date, onSave: @escaping (String, String, Date) -> Void) {
+    init(kind: FinancialDocumentKind, name: String, merchant: String, date: Date,
+         amount: Double?, frequency: String, interval: Int, currency: String,
+         onSave: @escaping (String, String, Date, Double?, String, Int, String) -> Void) {
+        self.kind = kind
         self.onSave = onSave
         _name = State(initialValue: name)
         _merchant = State(initialValue: merchant)
         _date = State(initialValue: date)
+        _amountText = State(initialValue: amount.map { String(format: "%.2f", $0) } ?? "")
+        _frequency = State(initialValue: frequency)
+        _interval = State(initialValue: max(1, min(365, interval)))
+        _currency = State(initialValue: currency)
+        // Previously saved date was user-confirmed; amount/name edits don't
+        // require verification again unless the date itself changes.
+        _verified = State(initialValue: true)
+    }
+
+    private var parsedAmount: Double? {
+        let text = amountText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        return Double(text.replacingOccurrences(of: ",", with: "."))
+    }
+    private var amountValid: Bool {
+        amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+        (parsedAmount.map { $0.isFinite && $0 >= 0 } ?? false)
+    }
+    private var currencyValid: Bool {
+        currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            .range(of: #"^[A-Z]{3}$"#, options: .regularExpression) != nil
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Details") {
-                    TextField("Name", text: $name)
+                    TextField(kind == .receipt ? "Item name" : "Service name", text: $name)
                     TextField("Merchant", text: $merchant)
+                    TextField(kind == .receipt ? "Total paid (optional)" : "Amount per charge (optional)", text: $amountText)
+                        .keyboardType(.decimalPad)
                 }
-                Section("Date") {
+                if kind == .receipt {
+                    Section("Currency") {
+                        TextField("Currency (e.g. USD)", text: $currency)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                    }
+                }
+                if kind == .subscription {
+                    Section("Billing cycle") {
+                        Picker("Frequency", selection: $frequency) {
+                            ForEach(["Daily", "Weekly", "Monthly", "Yearly", "Other"], id: \.self) {
+                                Text($0).tag($0)
+                            }
+                        }
+                        if frequency != "Other" {
+                            Stepper(value: $interval, in: 1...365) {
+                                Text(SubscriptionForecast.cadenceDescription(
+                                    frequency: frequency, intervalCount: interval))
+                            }
+                        }
+                        TextField("Currency (e.g. USD)", text: $currency)
+                            .textInputAutocapitalization(.characters)
+                            .autocorrectionDisabled()
+                        Text("This is the amount each billing cycle, not a monthly estimate.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Section(kind == .receipt ? "Return deadline" : "Next charge") {
                     DatePicker("Confirmed date", selection: $date, displayedComponents: [.date, .hourAndMinute])
+                        .onChange(of: date) { _, _ in verified = false }
                     Toggle("I've verified this date", isOn: $verified)
-                    Text("Changing the date refreshes the reminder when notifications are permitted.")
+                    Text("Changing the date requires confirmation. Editing the amount, name or cycle does not.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Section {
                     Button("Save changes") {
-                        onSave(name.trimmingCharacters(in: .whitespacesAndNewlines),
-                               merchant.trimmingCharacters(in: .whitespacesAndNewlines), date)
+                        onSave(
+                            name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            merchant.trimmingCharacters(in: .whitespacesAndNewlines),
+                            date, parsedAmount, frequency, interval,
+                            currency.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                        )
                         dismiss()
                     }
-                    .disabled(!verified || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!verified || !amountValid || !currencyValid ||
+                              name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .navigationTitle("Edit details")

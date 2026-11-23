@@ -3,9 +3,16 @@ on:
   pull_request:
   push:
     branches: [main]
+# Keep only the latest validation of a pull request to avoid costly, stale
+# simulator runs when release-hardening fixes land in quick succession.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen
@@ -22,6 +29,7 @@ jobs:
   release-compile:
     name: Unsigned iOS device Release compilation
     runs-on: macos-15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen
@@ -31,3 +39,37 @@ jobs:
       - name: Compile all app and extension targets for iPhoneOS (unsigned)
         run: |
           xcodebuild -project Remorrow.xcodeproj -scheme Remorrow -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+      - name: Verify packaged app metadata and embedded extensions
+        run: |
+          APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData" -type d -path '*/Build/Products/Release-iphoneos/Remorrow.app' -print -quit)"
+          test -n "$APP_PATH" && test -d "$APP_PATH"
+          export APP_PATH
+          python3 - <<'PY'
+          import os
+          import plistlib
+          from pathlib import Path
+
+          app = Path(os.environ["APP_PATH"])
+          def plist(path):
+              assert path.is_file(), f"Missing Info.plist: {path}"
+              with path.open("rb") as file:
+                  return plistlib.load(file)
+          info = plist(app / "Info.plist")
+          assert info["CFBundleIdentifier"] == "com.komail2004.remorrow", info
+          assert info["CFBundleShortVersionString"] == "1.0", info
+          assert info["CFBundleVersion"] == "2", info
+          orientations = info.get("UISupportedInterfaceOrientations", [])
+          assert isinstance(orientations, list), f"Orientations are not an array: {orientations!r}"
+          assert "UIInterfaceOrientationPortrait" in orientations, orientations
+          expected = {
+              "RemorrowWidget": ("com.komail2004.remorrow.Widget", "Remorrow Widget"),
+              "RemorrowShareExtension": ("com.komail2004.remorrow.ShareExtension", "Remorrow"),
+              "RemorrowTextAction": ("com.komail2004.remorrow.TextAction", "Remember with Remorrow"),
+          }
+          for folder, (bundle_id, display_name) in expected.items():
+              extension = plist(app / "PlugIns" / (folder + ".appex") / "Info.plist")
+              assert extension.get("CFBundleIdentifier") == bundle_id, (folder, extension)
+              assert extension.get("CFBundleDisplayName") == display_name, (folder, extension)
+              assert extension.get("CFBundleVersion") == info["CFBundleVersion"], folder
+          print("Release app and embedded extension metadata verified.")
+          PY

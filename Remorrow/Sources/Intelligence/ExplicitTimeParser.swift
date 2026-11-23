@@ -108,7 +108,7 @@ enum ExplicitTimeParser {
                                   minute: 0, evidence: evidence)))
             }
         }
-        return found.sorted { $0.position < $1.position }.map(\.clock)
+        return found.sorted { $0.position < $1.position }.map { $0.clock }
     }
 
     private static func first(_ pattern: String, in source: String) -> NSTextCheckingResult? {

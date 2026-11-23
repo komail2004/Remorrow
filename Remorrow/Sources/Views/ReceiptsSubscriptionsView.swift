@@ -320,6 +320,10 @@ struct ReceiptsSubscriptionsView: View {
                 }
             }
         } catch {
+            // A failed SwiftData save can leave an inserted object pending in the
+            // context. Roll it back before deleting the attachment so a later
+            // unrelated save cannot persist a record pointing to a missing image.
+            modelContext.rollback()
             CaptureMediaStore.remove(named: filename)
             throw error
         }
